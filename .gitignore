@@ -39,7 +39,7 @@ env/
 *.sqlite
 *.sqlite3
 chroma_db/
-*.json
+*.db.json
 
 # Cache
 .cache/
