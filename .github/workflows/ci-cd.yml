@@ -8,6 +8,7 @@ on:
 
 env:
     PYTHON_VERSION: "3.11"
+    JWT_SECRET_KEY: "ci_test_secret_key"
 
 jobs:
     lint:
@@ -63,15 +64,16 @@ jobs:
 
             - name: Run tests
               run: |
+                  # Create data directory for tests if needed
+                  mkdir -p data
                   pytest tests/ -v --cov=. --cov-report=xml || true
-              env:
-                  JWT_SECRET_KEY: test_secret_key_for_ci
 
             - name: Upload coverage reports
               uses: codecov/codecov-action@v4
               with:
                   file: ./coverage.xml
                   fail_ci_if_error: false
+                  token: ${{ secrets.CODECOV_TOKEN }}
 
     security:
         name: Security Scan
@@ -93,13 +95,15 @@ jobs:
               run: bandit -r . -x ./tests,./venv,./.venv -ll || true
 
             - name: Check dependencies for vulnerabilities
-              run: safety check -r requirements.txt || true
+              run: |
+                  # safety check might fail on dev dependencies, ignoring for now
+                  safety check -r requirements.txt || true
 
     build:
         name: Build Docker Image
         runs-on: ubuntu-latest
         needs: [test, security]
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
         steps:
             - uses: actions/checkout@v4
 
@@ -108,6 +112,7 @@ jobs:
 
             - name: Build Docker image
               run: |
+                  # Use lower-case image name and tag with SHA
                   docker build -t career-decision-ai:${{ github.sha }} .
                   docker build -t career-decision-ai:latest .
 
@@ -138,6 +143,6 @@ jobs:
 
             - name: Deploy notification
               run: |
-                  echo "Staging deployment would happen here"
-                  echo "Image: career-decision-ai:${{ github.sha }}"
-                  echo "To enable actual deployment, configure your staging environment"
+                  echo "🚀 Staging deployment placeholder"
+                  echo "Image hash: ${{ github.sha }}"
+                  ls -R
