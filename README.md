@@ -345,16 +345,8 @@ This project includes comprehensive documentation for different areas:
 - **[services/README.md](services/README.md)** - Microservices architecture, 50+ service definitions, communication patterns with dependency graphs
 - **[tests/README.md](tests/README.md)** - Testing framework, test organization, fixtures, CI/CD integration
 
-### Feature Guides
-- **[MEDIA_INGESTION_FEATURE.md](MEDIA_INGESTION_FEATURE.md)** - Comprehensive media ingestion feature documentation
-- **[MEDIA_INGESTION_QUICK_GUIDE.md](MEDIA_INGESTION_QUICK_GUIDE.md)** - Quick reference for media features
-
 ### Security
 - **[SECURITY.md](SECURITY.md)** - Security features, configuration, and best practices
-
-## Security
-
-See [SECURITY.md](SECURITY.md) for security features, configuration, and best practices.
 
 ## License
 

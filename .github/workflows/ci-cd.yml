@@ -1,148 +1,142 @@
 name: CI/CD Pipeline
 
 on:
-    push:
-        branches: [main, develop]
-    pull_request:
-        branches: [main]
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 
 env:
-    PYTHON_VERSION: "3.11"
-    JWT_SECRET_KEY: "ci_test_secret_key"
+  PYTHON_VERSION: "3.11"
+  JWT_SECRET_KEY: "ci_test_secret_key"
 
 jobs:
-    lint:
-        name: Code Quality Check
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: ${{ env.PYTHON_VERSION }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
 
-            - name: Install linting tools
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install flake8 black isort
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
 
-            - name: Run Black (formatting check)
-              run: black --check --diff . || true
+      - name: Run Black (formatting check)
+        run: black --check --diff .
 
-            - name: Run isort (import sorting check)
-              run: isort --check-only --diff . || true
+      - name: Run isort (import sorting check)
+        run: isort --check-only --diff .
 
-            - name: Run Flake8 (linting)
-              run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+      - name: Run Flake8 (linting)
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-    test:
-        name: Run Tests
-        runs-on: ubuntu-latest
-        needs: lint
-        steps:
-            - uses: actions/checkout@v4
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: ${{ env.PYTHON_VERSION }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
 
-            - name: Cache pip dependencies
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cache/pip
-                  key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx
 
-            - name: Install dependencies
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install -r requirements.txt
-                  pip install pytest pytest-asyncio pytest-cov httpx
+      - name: Run tests
+        run: |
+          mkdir -p data
+          pytest tests/ -v --cov=. --cov-report=xml
 
-            - name: Run tests
-              run: |
-                  # Create data directory for tests if needed
-                  mkdir -p data
-                  pytest tests/ -v --cov=. --cov-report=xml || true
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
-            - name: Upload coverage reports
-              uses: codecov/codecov-action@v4
-              with:
-                  file: ./coverage.xml
-                  fail_ci_if_error: false
-                  token: ${{ secrets.CODECOV_TOKEN }}
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-    security:
-        name: Security Scan
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
 
-            - name: Install security tools
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install bandit safety
+      - name: Run Bandit (security linter)
+        run: bandit -r . -x ./tests,./venv,./.venv -ll
 
-            - name: Run Bandit (security linter)
-              run: bandit -r . -x ./tests,./venv,./.venv -ll || true
+      - name: Check dependencies for vulnerabilities
+        run: |
+          safety check -r requirements.txt || true
 
-            - name: Check dependencies for vulnerabilities
-              run: |
-                  # safety check might fail on dev dependencies, ignoring for now
-                  safety check -r requirements.txt || true
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@v4
 
-    build:
-        name: Build Docker Image
-        runs-on: ubuntu-latest
-        needs: [test, security]
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-        steps:
-            - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+      - name: Build and tag Docker image
+        run: |
+          docker build -t career-decision-ai:${{ github.sha }} -t career-decision-ai:latest .
 
-            - name: Build Docker image
-              run: |
-                  # Use lower-case image name and tag with SHA
-                  docker build -t career-decision-ai:${{ github.sha }} .
-                  docker build -t career-decision-ai:latest .
+      - name: Save Docker image
+        run: |
+          docker save career-decision-ai:latest | gzip > career-decision-ai.tar.gz
 
-            - name: Save Docker image
-              run: |
-                  docker save career-decision-ai:latest | gzip > career-decision-ai.tar.gz
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: career-decision-ai.tar.gz
+          retention-days: 7
 
-            - name: Upload Docker image artifact
-              uses: actions/upload-artifact@v4
-              with:
-                  name: docker-image
-                  path: career-decision-ai.tar.gz
-                  retention-days: 7
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@v4
 
-    deploy-staging:
-        name: Deploy to Staging
-        runs-on: ubuntu-latest
-        needs: build
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        environment: staging
-        steps:
-            - uses: actions/checkout@v4
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
 
-            - name: Download Docker image
-              uses: actions/download-artifact@v4
-              with:
-                  name: docker-image
+      - name: Load Docker image
+        run: |
+          gunzip -c career-decision-ai.tar.gz | docker load
 
-            - name: Deploy notification
-              run: |
-                  echo "🚀 Staging deployment placeholder"
-                  echo "Image hash: ${{ github.sha }}"
-                  ls -R
+      - name: Deploy notification
+        run: |
+          echo "Staging deployment initiated"
+          echo "Image hash: ${{ github.sha }}"
+          docker images
