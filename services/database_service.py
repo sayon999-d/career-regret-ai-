@@ -7,8 +7,10 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 import bcrypt
 import os
+import tempfile
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "/tmp/career_regret_ai.db")
+DEFAULT_DB_PATH = os.path.join(tempfile.gettempdir(), "career_regret_ai.db")
+DATABASE_PATH = os.getenv("DATABASE_PATH", DEFAULT_DB_PATH)
 
 class DatabaseService:
     """Central database service for all persistent storage needs"""
@@ -225,6 +227,13 @@ class DatabaseService:
             
             conn.commit()
             print(f"Database initialized at {self.db_path}")
+
+    def _build_update_clause(self, updates: Dict[str, Any], allowed_fields: List[str]) -> Tuple[str, List[Any]]:
+        safe_updates = {k: v for k, v in updates.items() if k in allowed_fields}
+        if not safe_updates:
+            return "", []
+        set_clause = ", ".join([f"{k} = ?" for k in safe_updates.keys()])
+        return set_clause, list(safe_updates.values())
     
     def create_user(self, email: str, username: str, password: str, full_name: str = None) -> Optional[Dict]:
         """Create a new user with hashed password"""
@@ -273,17 +282,18 @@ class DatabaseService:
     
     def update_user(self, user_id: str, **updates) -> bool:
         allowed_fields = ['full_name', 'bio', 'avatar_url', 'preferences', 'theme', 'notification_settings']
-        updates = {k: v for k, v in updates.items() if k in allowed_fields}
-        
-        if not updates:
+        set_clause, values = self._build_update_clause(updates, allowed_fields)
+
+        if not set_clause:
             return False
-        
-        set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
-        values = list(updates.values()) + [user_id]
+
+        values.append(user_id)
+        query = "UPDATE users SET " + set_clause + " WHERE id = ?"  # nosec B608
         
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f'UPDATE users SET {set_clause} WHERE id = ?', values)
+            # Column names are whitelisted above in _build_update_clause.
+            cursor.execute(query, values)  # nosec B608
             conn.commit()
             return cursor.rowcount > 0
     
@@ -487,12 +497,18 @@ class DatabaseService:
             return False
         
         updates['updated_at'] = datetime.utcnow().isoformat()
-        set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
-        values = list(updates.values()) + [decision_id, user_id]
+        set_clause, values = self._build_update_clause(updates, allowed_fields + ['updated_at'])
+
+        if not set_clause:
+            return False
+
+        values.extend([decision_id, user_id])
+        query = "UPDATE decisions SET " + set_clause + " WHERE id = ? AND user_id = ?"  # nosec B608
         
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f'UPDATE decisions SET {set_clause} WHERE id = ? AND user_id = ?', values)
+            # Column names are whitelisted above in _build_update_clause.
+            cursor.execute(query, values)  # nosec B608
             conn.commit()
             return cursor.rowcount > 0
     
@@ -626,12 +642,18 @@ class DatabaseService:
             return False
         
         updates['updated_at'] = datetime.utcnow().isoformat()
-        set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
-        values = list(updates.values()) + [event_id, user_id]
+        set_clause, values = self._build_update_clause(updates, allowed_fields + ['updated_at'])
+
+        if not set_clause:
+            return False
+
+        values.extend([event_id, user_id])
+        query = "UPDATE calendar_events SET " + set_clause + " WHERE id = ? AND user_id = ?"  # nosec B608
         
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f'UPDATE calendar_events SET {set_clause} WHERE id = ? AND user_id = ?', values)
+            # Column names are whitelisted above in _build_update_clause.
+            cursor.execute(query, values)  # nosec B608
             conn.commit()
             return cursor.rowcount > 0
     

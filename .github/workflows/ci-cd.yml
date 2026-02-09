@@ -10,6 +10,13 @@ env:
   PYTHON_VERSION: "3.11"
   JWT_SECRET_KEY: "ci_test_secret_key"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Code Quality Check
@@ -61,12 +68,14 @@ jobs:
           mkdir -p data
           pytest tests/ -v --cov=. --cov-report=xml
 
-      - name: Upload coverage reports
+      - name: Upload coverage reports (if token available)
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   security:
     name: Security Scan
@@ -89,8 +98,7 @@ jobs:
         run: bandit -r . -x ./tests,./venv,./.venv -ll
 
       - name: Check dependencies for vulnerabilities
-        run: |
-          safety check -r requirements.txt || true
+        run: safety check -r requirements.txt || true
 
   build:
     name: Build Docker Image

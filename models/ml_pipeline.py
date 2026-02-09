@@ -7,6 +7,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from typing import Dict, List, Tuple, Optional
 import os
 import math
+import inspect
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
@@ -674,7 +675,11 @@ class EnhancedRegretPredictor:
     def load_model(self, path: Optional[str] = None):
         load_path = path or os.path.join(self.model_path, "enhanced_regret_model.pt")
         if os.path.exists(load_path):
-            checkpoint = torch.load(load_path, map_location=self.device)
+            load_kwargs = {"map_location": self.device}
+            if "weights_only" in inspect.signature(torch.load).parameters:
+                load_kwargs["weights_only"] = True
+            # We only load local model artifacts; use weights_only when available.
+            checkpoint = torch.load(load_path, **load_kwargs)  # nosec B614
             self.dl_model.load_state_dict(checkpoint["dl_model_state"])
             self.is_trained = checkpoint.get("is_trained", False)
             self.dl_weight = checkpoint.get("dl_weight", 0.7)

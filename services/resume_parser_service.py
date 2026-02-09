@@ -112,7 +112,7 @@ class ResumeParserService:
         filename: str = ""
     ) -> Dict[str, Any]:
         """Parse a resume from text content"""
-        resume_id = hashlib.md5(
+        resume_id = hashlib.sha256(
             f"{user_id}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
 
@@ -162,6 +162,52 @@ class ResumeParserService:
         self.parsed_resumes[resume_id] = parsed
 
         return self._to_dict(parsed)
+
+    def calculate_resume_score(self, resume_id: str) -> Dict[str, Any]:
+        """Calculate a detailed resume score with breakdown and recommendations"""
+        parsed = self.parsed_resumes.get(resume_id)
+        if not parsed:
+            return {"error": "Resume not found"}
+
+        score_data = self._score_resume(parsed)
+        breakdown = score_data["score_breakdown"]
+
+        strengths = []
+        improvement_areas = []
+        recommendations = []
+
+        for section, data in breakdown.items():
+            max_score = data["max"]
+            if max_score <= 0:
+                continue
+            percent = (data["score"] / max_score) * 100
+            if percent >= 80:
+                strengths.append(f"Strong {section.lower()} section")
+            elif percent < 50:
+                improvement_areas.append(f"Improve {section.lower()} details")
+
+        if not parsed.summary:
+            recommendations.append("Add a concise professional summary highlighting your impact.")
+        if len(parsed.skills) < 10:
+            recommendations.append("Expand your skills section with relevant tools and frameworks.")
+        if not parsed.education:
+            recommendations.append("Include education details to strengthen credibility.")
+        if not parsed.certifications:
+            recommendations.append("Add certifications if you have any relevant to your role.")
+        if not parsed.experiences:
+            recommendations.append("Add work experience with measurable achievements.")
+
+        return {
+            "resume_id": parsed.id,
+            "overall_score": score_data["overall_score"],
+            "grade": score_data["grade"],
+            "level": score_data["level"],
+            "percentage": score_data["percentage"],
+            "score_breakdown": breakdown,
+            "strengths": strengths,
+            "improvement_areas": improvement_areas,
+            "recommendations": recommendations
+        }
 
     def _extract_name(self, text: str) -> str:
         """Extract candidate name from resume"""
@@ -415,6 +461,7 @@ class ResumeParserService:
 
     def _to_dict(self, parsed: ParsedResume) -> Dict[str, Any]:
         """Convert ParsedResume to dictionary"""
+        score_data = self._score_resume(parsed)
         return {
             "id": parsed.id,
             "name": parsed.name,
@@ -432,6 +479,12 @@ class ResumeParserService:
             "education_count": len(parsed.education),
             "confidence_score": round(parsed.confidence_score, 2),
             "parsed_at": parsed.parsed_at.isoformat(),
+            "resume_score": {
+                "overall_score": score_data["overall_score"],
+                "grade": score_data["grade"],
+                "level": score_data["level"],
+                "percentage": score_data["percentage"]
+            },
             "experiences": [{
                 "company": exp.company,
                 "title": exp.title,
@@ -444,6 +497,70 @@ class ResumeParserService:
                 "degree": edu.degree,
                 "field_of_study": edu.field_of_study
             } for edu in parsed.education]
+        }
+
+    def _score_resume(self, parsed: ParsedResume) -> Dict[str, Any]:
+        score_breakdown = {
+            "Contact": {"score": 0, "max": 10},
+            "Summary": {"score": 0, "max": 10},
+            "Experience": {"score": 0, "max": 30},
+            "Education": {"score": 0, "max": 15},
+            "Skills": {"score": 0, "max": 20},
+            "Certifications": {"score": 0, "max": 10},
+            "Languages": {"score": 0, "max": 5}
+        }
+
+        contact_score = 0
+        contact_score += 2.5 if parsed.name else 0
+        contact_score += 2.5 if parsed.email else 0
+        contact_score += 2.5 if parsed.phone else 0
+        contact_score += 2.5 if parsed.location else 0
+        score_breakdown["Contact"]["score"] = contact_score
+
+        summary_score = 10 if len(parsed.summary) >= 40 else (5 if parsed.summary else 0)
+        score_breakdown["Summary"]["score"] = summary_score
+
+        exp_score = min(30.0, parsed.years_of_experience * 3.0)
+        if parsed.experiences and exp_score < 5:
+            exp_score = 5.0
+        score_breakdown["Experience"]["score"] = round(exp_score, 1)
+
+        edu_score = 10 if parsed.education else 0
+        if parsed.education and any(e.degree for e in parsed.education):
+            edu_score = 15
+        score_breakdown["Education"]["score"] = edu_score
+
+        skills_score = min(20.0, len(parsed.skills) * 1.5)
+        score_breakdown["Skills"]["score"] = round(skills_score, 1)
+
+        cert_score = min(10.0, len(parsed.certifications) * 5.0)
+        score_breakdown["Certifications"]["score"] = cert_score
+
+        lang_score = min(5.0, len(parsed.languages) * 2.0)
+        score_breakdown["Languages"]["score"] = lang_score
+
+        overall_score = sum(section["score"] for section in score_breakdown.values())
+        overall_score = round(min(100.0, overall_score), 1)
+
+        if overall_score >= 90:
+            grade = "A"
+        elif overall_score >= 80:
+            grade = "B"
+        elif overall_score >= 70:
+            grade = "C"
+        elif overall_score >= 60:
+            grade = "D"
+        else:
+            grade = "F"
+
+        level = parsed.seniority_level or "Unspecified"
+
+        return {
+            "overall_score": overall_score,
+            "grade": grade,
+            "level": level,
+            "percentage": overall_score,
+            "score_breakdown": score_breakdown
         }
 
     def get_resume(self, resume_id: str) -> Optional[Dict[str, Any]]:

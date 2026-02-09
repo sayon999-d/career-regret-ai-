@@ -177,7 +177,7 @@ class GoogleCalendarSyncService:
         recurrence: str = None
     ) -> Dict[str, Any]:
         """Create a calendar event"""
-        event_id = hashlib.md5(
+        event_id = hashlib.sha256(
             f"{user_id}{title}{start_time.timestamp()}".encode()
         ).hexdigest()[:12]
 

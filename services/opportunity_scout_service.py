@@ -150,7 +150,7 @@ class OpportunityScoutService:
 
         for job in job_templates:
             if random.random() > 0.3:
-                opp_id = hashlib.md5(f"{job['title']}{datetime.utcnow()}".encode()).hexdigest()[:12]
+                opp_id = hashlib.sha256(f"{job['title']}{datetime.utcnow()}".encode()).hexdigest()[:12]
                 regret_score = self._calculate_regret_score(profile, job)
                 opportunities.append(Opportunity(
                     id=opp_id,
@@ -172,7 +172,7 @@ class OpportunityScoutService:
         gap_skills = [s for s in industry_skills if s not in profile.skills]
 
         for skill in gap_skills[:2]:
-            opp_id = hashlib.md5(f"skill_{skill}{profile.user_id}".encode()).hexdigest()[:12]
+            opp_id = hashlib.sha256(f"skill_{skill}{profile.user_id}".encode()).hexdigest()[:12]
             opportunities.append(Opportunity(
                 id=opp_id,
                 type=OpportunityType.SKILL,
@@ -191,7 +191,7 @@ class OpportunityScoutService:
         opportunities = []
         relevant_trends = [t for t in self.MARKET_TRENDS if t['demand'] in ['high', 'very high']]
         for trend in relevant_trends[:2]:
-            opp_id = hashlib.md5(f"trend_{trend['name']}".encode()).hexdigest()[:12]
+            opp_id = hashlib.sha256(f"trend_{trend['name']}".encode()).hexdigest()[:12]
             opportunities.append(Opportunity(
                 id=opp_id,
                 type=OpportunityType.MARKET_TREND,
@@ -214,7 +214,7 @@ class OpportunityScoutService:
 
         if profile.salary_target > current_estimate:
             gap = profile.salary_target - current_estimate
-            opp_id = hashlib.md5(f"salary_{profile.user_id}".encode()).hexdigest()[:12]
+            opp_id = hashlib.sha256(f"salary_{profile.user_id}".encode()).hexdigest()[:12]
             opportunities.append(Opportunity(
                 id=opp_id,
                 type=OpportunityType.SALARY_INSIGHT,
@@ -232,7 +232,7 @@ class OpportunityScoutService:
     def _scan_network_opportunities(self, profile: UserProfile) -> List[Opportunity]:
         opportunities = []
         if random.random() > 0.6:
-            opp_id = hashlib.md5(f"network_{profile.user_id}{datetime.utcnow()}".encode()).hexdigest()[:12]
+            opp_id = hashlib.sha256(f"network_{profile.user_id}{datetime.utcnow()}".encode()).hexdigest()[:12]
             opportunities.append(Opportunity(
                 id=opp_id,
                 type=OpportunityType.NETWORK,
@@ -261,7 +261,7 @@ class OpportunityScoutService:
         return reasons
 
     def _create_alert(self, user_id: str, opportunities: List[Opportunity]):
-        alert_id = hashlib.md5(f"alert_{user_id}{datetime.utcnow()}".encode()).hexdigest()[:12]
+        alert_id = hashlib.sha256(f"alert_{user_id}{datetime.utcnow()}".encode()).hexdigest()[:12]
         high_match = [o for o in opportunities if o.match_score > 0.75]
         priority = "high" if len(high_match) >= 2 else "medium" if high_match else "low"
         alert = ScoutAlert(id=alert_id, user_id=user_id, opportunities=opportunities, priority=priority, message=f"Found {len(opportunities)} opportunities matching your profile")
@@ -285,7 +285,7 @@ class OpportunityScoutService:
         target_opp = next((o for o in self.opportunities[user_id] if o.id == opp_id), None)
         if not target_opp: return {"success": False, "error": "Opportunity not found"}
         application = {
-            "application_id": hashlib.md5(f"app_{opp_id}{datetime.utcnow()}".encode()).hexdigest()[:8],
+            "application_id": hashlib.sha256(f"app_{opp_id}{datetime.utcnow()}".encode()).hexdigest()[:8],
             "opportunity_id": opp_id,
             "title": target_opp.title,
             "status": "applied",

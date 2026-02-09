@@ -3,7 +3,7 @@ from typing import Optional, List
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    HOST: str = "0.0.0.0"
+    HOST: str = "127.0.0.1"
     PORT: int = 8000
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
 

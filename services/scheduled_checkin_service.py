@@ -117,7 +117,7 @@ class ScheduledCheckInService:
         custom_questions: List[str] = None
     ) -> ScheduledCheckIn:
         """Create a new scheduled check-in"""
-        check_in_id = hashlib.md5(
+        check_in_id = hashlib.sha256(
             f"{user_id}{check_in_type.value}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
 

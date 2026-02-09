@@ -116,7 +116,7 @@ class AdvancedFeedbackLoop:
         if user_id not in self.user_variants:
             self.user_variants[user_id] = {}
         if test_id not in self.user_variants[user_id]:
-            hash_val = int(hashlib.md5(f"{user_id}_{test_id}".encode()).hexdigest(), 16)
+            hash_val = int(hashlib.sha256(f"{user_id}_{test_id}".encode()).hexdigest(), 16)
             rand_val = (hash_val % 1000) / 1000.0
             cumulative = 0
             for variant, weight in zip(test.variants, test.weights):

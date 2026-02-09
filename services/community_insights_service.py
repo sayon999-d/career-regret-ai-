@@ -227,7 +227,7 @@ class CommunityInsightsService:
 
         stories = []
         for i, s in enumerate(story_data[:limit]):
-            story_id = hashlib.md5(f"{decision_type}_{i}".encode()).hexdigest()[:8]
+            story_id = hashlib.sha256(f"{decision_type}_{i}".encode()).hexdigest()[:8]
             stories.append(AnonymizedStory(
                 id=story_id,
                 decision_type=decision_type,

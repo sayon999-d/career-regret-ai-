@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, BinaryIO
 from dataclasses import dataclass
 import zipfile
+import tempfile
 
 from .database_service import db_service
 
@@ -22,7 +23,8 @@ class ExportImportService:
     """Handles all data export and import functionality"""
     
     def __init__(self):
-        self.export_dir = os.getenv("EXPORT_DIR", "/tmp/exports")
+        default_export_dir = os.path.join(tempfile.gettempdir(), "exports")
+        self.export_dir = os.getenv("EXPORT_DIR", default_export_dir)
         os.makedirs(self.export_dir, exist_ok=True)
     
     

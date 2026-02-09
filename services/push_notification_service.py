@@ -153,7 +153,7 @@ class PushNotificationService:
         if not sub.preferences.get(notification_type.value, True):
             return {"sent": False, "reason": "Notification type disabled by user"}
 
-        notification_id = hashlib.md5(
+        notification_id = hashlib.sha256(
             f"{user_id}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
 

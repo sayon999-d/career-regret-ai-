@@ -187,7 +187,7 @@ class ExternalIntegrationService:
 
         for i, job_data in enumerate(self.MOCK_JOBS[:limit]):
             job = JobListing(
-                id=f"job_{hashlib.md5(job_data['title'].encode()).hexdigest()[:8]}",
+                id=f"job_{hashlib.sha256(job_data['title'].encode()).hexdigest()[:8]}",
                 title=job_data["title"],
                 company=job_data["company"],
                 location=job_data["location"],
@@ -212,7 +212,7 @@ class ExternalIntegrationService:
 
         for i, news_data in enumerate(self.MOCK_NEWS[:limit]):
             article = NewsArticle(
-                id=f"news_{hashlib.md5(news_data['title'].encode()).hexdigest()[:8]}",
+                id=f"news_{hashlib.sha256(news_data['title'].encode()).hexdigest()[:8]}",
                 title=news_data["title"],
                 summary=f"Read about {news_data['title'].lower()} and how it affects your career decisions.",
                 source=news_data["source"],

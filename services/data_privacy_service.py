@@ -96,7 +96,7 @@ class EncryptionService:
         return hashlib.sha256(f"{data}{self.master_key.decode()}".encode()).hexdigest()
 
     def anonymize_user_id(self, user_id: str) -> str:
-        return f"anon_{hashlib.md5(f'{user_id}_anonymized'.encode()).hexdigest()[:12]}"
+        return f"anon_{hashlib.sha256(f'{user_id}_anonymized'.encode()).hexdigest()[:12]}"
 
 class DataPrivacyService:
     RETENTION_PERIODS = {

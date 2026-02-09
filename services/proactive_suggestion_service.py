@@ -370,7 +370,7 @@ class ProactiveSuggestionService:
         priority: SuggestionPriority = SuggestionPriority.MEDIUM
     ) -> Suggestion:
         """Create a suggestion from a template"""
-        suggestion_id = hashlib.md5(
+        suggestion_id = hashlib.sha256(
             f"{user_id}{suggestion_type.value}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
 

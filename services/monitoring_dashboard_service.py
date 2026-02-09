@@ -91,35 +91,51 @@ class MonitoringDashboardService:
 
     def get_system_metrics(self) -> Dict[str, Any]:
         """Get current system resource metrics"""
+        cpu_percent = 0.0
+        cpu_count = None
         try:
             cpu_percent = psutil.cpu_percent(interval=0.1)
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
+        except Exception:
+            cpu_percent = 0.0
+        try:
+            cpu_count = psutil.cpu_count()
+        except Exception:
+            cpu_count = None
 
-            return {
-                "cpu": {
-                    "percent": cpu_percent,
-                    "count": psutil.cpu_count(),
-                    "status": "high" if cpu_percent > 80 else "normal"
-                },
-                "memory": {
-                    "total_gb": round(memory.total / (1024**3), 2),
-                    "used_gb": round(memory.used / (1024**3), 2),
-                    "available_gb": round(memory.available / (1024**3), 2),
-                    "percent": memory.percent,
-                    "status": "high" if memory.percent > 85 else "normal"
-                },
-                "disk": {
-                    "total_gb": round(disk.total / (1024**3), 2),
-                    "used_gb": round(disk.used / (1024**3), 2),
-                    "free_gb": round(disk.free / (1024**3), 2),
-                    "percent": round(disk.percent, 1),
-                    "status": "high" if disk.percent > 90 else "normal"
-                },
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        except Exception as e:
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+        memory = None
+        try:
+            memory = psutil.virtual_memory()
+        except Exception:
+            memory = None
+
+        disk = None
+        try:
+            disk = psutil.disk_usage('/')
+        except Exception:
+            disk = None
+
+        return {
+            "cpu": {
+                "percent": cpu_percent,
+                "count": cpu_count,
+                "status": "high" if cpu_percent > 80 else "normal"
+            },
+            "memory": {
+                "total_gb": round(memory.total / (1024**3), 2) if memory else 0,
+                "used_gb": round(memory.used / (1024**3), 2) if memory else 0,
+                "available_gb": round(memory.available / (1024**3), 2) if memory else 0,
+                "percent": memory.percent if memory else 0,
+                "status": "high" if memory and memory.percent > 85 else "normal"
+            },
+            "disk": {
+                "total_gb": round(disk.total / (1024**3), 2) if disk else 0,
+                "used_gb": round(disk.used / (1024**3), 2) if disk else 0,
+                "free_gb": round(disk.free / (1024**3), 2) if disk else 0,
+                "percent": round(disk.percent, 1) if disk else 0,
+                "status": "high" if disk and disk.percent > 90 else "normal"
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
     def get_application_metrics(self) -> Dict[str, Any]:
         """Get application-level metrics"""

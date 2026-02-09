@@ -2,6 +2,20 @@
 
 An intelligent career decision analysis system that helps users evaluate career choices, predict potential regret, and receive personalized guidance using machine learning and AI.
 
+## Authentication
+
+Login uses the REST API and returns JWTs for subsequent requests. See `docs/README.md` for examples and the full API reference in `docs/API.md`.
+
+- Login endpoint: `POST /api/auth/login`
+- Auth header: `Authorization: Bearer <access_token>`
+
+## CI/CD
+
+Automated workflows live in `.github/workflows/`:
+
+- `ci-cd.yml` runs linting, tests, security scans, and Docker builds on pushes and PRs to `main` and `develop`.
+- `release.yml` builds and publishes a GitHub Release on tag pushes matching `v*`.
+
 ## System Architecture
 
 ```mermaid
