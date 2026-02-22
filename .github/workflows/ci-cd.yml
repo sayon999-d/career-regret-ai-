@@ -136,8 +136,8 @@ jobs:
     name: Deploy to Staging (K8s)
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    steps:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:  
       - uses: actions/checkout@v4
 
       - name: Set up kubectl
