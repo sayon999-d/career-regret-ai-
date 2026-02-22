@@ -10,7 +10,7 @@ env:
   PYTHON_VERSION: "3.11"
   JWT_SECRET_KEY: "ci_test_secret_key_for_testing_only"
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: "sayon999-d/career-regret-ai"
 
 permissions:
   contents: read
