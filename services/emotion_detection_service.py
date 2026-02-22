@@ -4,8 +4,8 @@ import os
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from collections import defaultdict
 from datetime import datetime
-import asyncio
 import cv2
 
 @dataclass

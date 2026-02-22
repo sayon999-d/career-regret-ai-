@@ -225,7 +225,7 @@ class FileUploadService:
 
     async def _extract_pdf(self, content: bytes) -> str:
         if not HAS_PYPDF:
-            return f"PDF uploaded: {filename}. Content extraction requires PyPDF2. Please describe the document content."
+            return "PDF uploaded. Content extraction requires PyPDF2. Please describe the document content."
 
         try:
             import io
