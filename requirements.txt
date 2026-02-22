@@ -3,6 +3,7 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 pydantic>=2.7.0
+pydantic_settings
 
 # ML/DL Pipeline
 torch>=2.0.0
@@ -59,3 +60,5 @@ youtube-transcript-api>=0.6.0
 beautifulsoup4>=4.12.2
 SpeechRecognition>=3.11.0
 pydub
+openai
+whisper 

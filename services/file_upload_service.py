@@ -137,9 +137,14 @@ class FileUploadService:
             user_context.uploaded_files.append(uploaded_file)
 
             content_lower = extracted.lower()
-            is_resume = any(k in content_lower for k in ["resume", "curriculum vitae", "cv", "work experience", "education"])
+            filename_lower = filename.lower() if filename else ""
 
-            if is_resume and len(content_lower) > 100:
+            is_resume = any(k in content_lower for k in ["resume", "curriculum vitae", "cv", "work experience", "education"]) \
+                or any(k in filename_lower for k in ["resume", "cv", "curriculum_vitae", "curriculum-vitae"])
+
+            min_length_for_parse = 100 if not any(k in filename_lower for k in ["resume", "cv"]) else 20
+
+            if is_resume and len(content_lower) > min_length_for_parse:
                 try:
                     from services.resume_parser_service import resume_parser_service
                     parsed_data = resume_parser_service.parse_resume(user_id, extracted, filename)
@@ -220,7 +225,7 @@ class FileUploadService:
 
     async def _extract_pdf(self, content: bytes) -> str:
         if not HAS_PYPDF:
-            return "PDF uploaded. Content extraction requires PyPDF2. Please describe the document content."
+            return f"PDF uploaded: {filename}. Content extraction requires PyPDF2. Please describe the document content."
 
         try:
             import io

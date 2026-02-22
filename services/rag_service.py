@@ -61,9 +61,10 @@ class RAGService:
             await self._populate_knowledge_base()
             self.initialized = True
             return {"status": "initialized", "documents": len(self.documents)}
-        except ImportError:
+        except (ImportError, PermissionError, Exception) as e:
+            print(f"RAG: Falling back to keyword search ({type(e).__name__}: {e})")
             self._initialize_fallback()
-            return {"status": "fallback", "reason": "dependencies_unavailable"}
+            return {"status": "fallback", "reason": str(e)}
 
     def _initialize_fallback(self):
         for doc in CAREER_KNOWLEDGE_BASE:

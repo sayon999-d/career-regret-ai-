@@ -4,15 +4,14 @@ Comprehensive testing suite for the Career Decision Regret System. This module c
 
 ## Table of Contents
 
-[Overview](#overview)
-[Architecture](#architecture)
-[Test Structure](#test-structure)
-[Running Tests](#running-tests)
-[Test Coverage](#test-coverage)
-[Writing Tests](#writing-tests)
-[Fixtures and Mocks](#fixtures-and-mocks)
-[Best Practices](#best-practices)
-[CI/CD Integration](#cicd-integration)
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Test Structure](#test-structure)
+- [Running Tests](#running-tests)
+- [Test Coverage](#test-coverage)
+- [Writing Tests](#writing-tests)
+- [Fixtures and Mocks](#fixtures-and-mocks)
+- [CI/CD Integration](#cicd-integration)
 
 ## Overview
 
@@ -21,239 +20,172 @@ The test suite ensures:
 - Regression prevention
 - API contract compliance
 - Integration between components
-- Performance benchmarking
 - Security validation
 
-Test Framework: pytest
-Async Support: pytest-asyncio
-Mocking: unittest.mock and pytest fixtures
-Coverage: pytest-cov
-Performance: pytest-benchmark
+| Tool | Purpose |
+|------|---------|
+| pytest | Test framework |
+| pytest-asyncio | Async test support |
+| pytest-cov | Coverage reporting |
+| unittest.mock | Mocking and patching |
+| httpx | Async HTTP client for API tests |
 
 ## Architecture
 
-### Tests Module Organization
+### Test Module Organization
 
 ```mermaid
 graph TD
-    A["tests/"] --> B["conftest.py<br/>Pytest configuration"]
-    A --> C["test_imports.py<br/>Service imports"]
-    A --> D["test_api_integration.py<br/>API endpoints"]
-    A --> E["test_bias_interceptor.py<br/>Bias detection"]
-    A --> F["test_data_privacy.py<br/>Privacy & security"]
-    A --> G["test_future_self.py<br/>Future simulation"]
-    A --> H["test_global_regret_db.py<br/>Regret database"]
-    A --> I["test_opportunity_scout.py<br/>Opportunity logic"]
-    A --> J["test_phase2_services.py<br/>Phase 2 features"]
-    A --> K["test_youtube_service.py<br/>YouTube integration"]
+    ROOT["tests/"]
+    ROOT --> CONF["conftest.py<br/>Session fixtures, user fixtures,<br/>decision fixtures, mocking utils"]
+    ROOT --> IMP["test_imports.py<br/>Service import validation"]
+    ROOT --> API["test_api_integration.py<br/>API endpoint tests"]
+    ROOT --> BIAS["test_bias_interceptor.py<br/>Bias detection logic"]
+    ROOT --> PRIV["test_data_privacy.py<br/>Privacy and GDPR compliance"]
+    ROOT --> FUTURE["test_future_self.py<br/>Future self simulation"]
+    ROOT --> REGRET["test_global_regret_db.py<br/>Regret database operations"]
+    ROOT --> OPP["test_opportunity_scout.py<br/>Opportunity matching"]
+    ROOT --> P2["test_phase2_services.py<br/>Phase 2 feature integration"]
+    ROOT --> YT["test_youtube_service.py<br/>YouTube integration"]
+    ROOT --> NEW["test_new_features.py<br/>Recently added features"]
 ```
 
 ### Test Execution Flow
 
 ```mermaid
 graph TD
-    A["Test Discovery<br/>pytest finds test files"] --> B["Session Setup<br/>Initialize fixtures & config"]
-    B --> C["Module Setup<br/>Import & initialize modules"]
-    C --> D["Test Execution<br/>Run test functions"]
-    D --> E["Setup Fixtures<br/>Prepare test data"]
-    E --> F["Execute Test<br/>Run test logic"]
-    F --> G["Verify Assertions<br/>Check results"]
-    G --> H["Cleanup Resources<br/>Tear down"]
-    H --> I["Reporting<br/>Generate test report"]
-    I --> J["Pass/Fail Status<br/>Coverage Metrics<br/>Performance Data"]
+    A["pytest invocation"] --> B["Parse arguments<br/>-v, --cov, -k filter"]
+    B --> C["Discover test files<br/>test_*.py pattern"]
+    C --> D["Load conftest.py<br/>Initialize session fixtures"]
+    D --> E["Import test modules"]
+    E --> F["For each test function"]
+    F --> G["Resolve fixtures<br/>Create test data"]
+    G --> H["Execute test body"]
+    H --> I["Verify assertions"]
+    I --> J{"Pass?"}
+    J -->|Yes| K["Record PASSED"]
+    J -->|No| L["Record FAILED<br/>Capture traceback"]
+    K --> M["Teardown fixtures"]
+    L --> M
+    M --> N["Next test or<br/>generate report"]
+    N --> O["Final Report<br/>Pass/Fail counts<br/>Coverage metrics<br/>Duration"]
 ```
 
 ## Test Structure
 
-### Test File Organization
-
 ```
-conftest.py
-├── session fixtures (event_loop)
-├── user fixtures (sample_user_id)
-├── decision fixtures (sample_decision)
-├── profile fixtures (sample_profile)
-├── mocking utilities
-└── configuration
-
-test_imports.py
-├── Service import tests
-├── Module availability checks
-└── Dependency verification
-
-test_api_integration.py
-├── Endpoint tests
-├── Request/response validation
-├── Error handling
-└── Security checks
-
-test_bias_interceptor.py
-├── Bias detection tests
-├── Bias type classification
-├── Mitigation suggestions
-└── Edge cases
-
-test_data_privacy.py
-├── Privacy control tests
-├── GDPR compliance checks
-├── Data anonymization tests
-├── Encryption/decryption tests
-
-test_future_self.py
-├── Simulation tests
-├── Projection accuracy
-├── Scenario comparison
-└── Timeline validation
-
-test_global_regret_db.py
-├── Aggregation tests
-├── Pattern detection
-├── Benchmark updates
-└── Data consistency
-
-test_opportunity_scout.py
-├── Opportunity identification
-├── Matching algorithms
-├── Risk assessment
-└── Recommendation quality
-
-test_phase2_services.py
-├── Feature integration
-├── Cross-service workflows
-├── Data flow validation
-└── Performance tests
-
-test_youtube_service.py
-├── Video retrieval
-├── Metadata extraction
-├── Recommendation quality
-└── Transcript handling
+tests/
+  conftest.py                  Session config, common fixtures
+  test_imports.py              Validates all service imports succeed
+  test_api_integration.py      API endpoint request/response tests
+  test_bias_interceptor.py     Bias detection and classification
+  test_data_privacy.py         Privacy controls and GDPR compliance
+  test_future_self.py          Future self simulation accuracy
+  test_global_regret_db.py     Regret database aggregation
+  test_opportunity_scout.py    Opportunity identification and matching
+  test_phase2_services.py      Cross-service integration workflows
+  test_youtube_service.py      YouTube metadata and transcript handling
+  test_new_features.py         Recently added feature tests
 ```
 
 ## Running Tests
 
-### Run All Tests
+### Basic Commands
 
 ```bash
+# Run all tests
 pytest
-```
 
-### Run Specific Test File
-
-```bash
+# Run specific file
 pytest tests/test_imports.py -v
-pytest tests/test_bias_interceptor.py -v
-```
 
-### Run Specific Test
-
-```bash
-pytest tests/test_imports.py::test_nlp_import -v
+# Run specific test function
 pytest tests/test_bias_interceptor.py::test_detect_sunk_cost_fallacy -v
+
+# Run with output visible
+pytest -v -s
 ```
 
-### Run with Coverage
+### Coverage
 
 ```bash
-pytest --cov=services --cov=models --cov-report=html
+# Run with coverage report
+pytest --cov=. --cov-report=term --cov-report=html
+
+# View HTML report
+open htmlcov/index.html
 ```
 
-### Run with Output
+### Filtering
 
 ```bash
-pytest -v                          # Verbose output
-pytest -s                          # Show print statements
-pytest -vv                         # Extra verbose
-pytest --tb=short                  # Short traceback format
+# Run only tests matching a keyword
+pytest -k "bias" -v
+
+# Skip slow tests
+pytest -m "not slow"
+
+# Run async tests only
+pytest -k "async" -v
 ```
 
-### Run Async Tests
+### Debugging
 
 ```bash
-pytest -k async -v                 # Run async tests
-pytest tests/test_api_integration.py -v  # Tests with async
-```
+# Verbose with full traceback
+pytest -vv --tb=long
 
-### Run with Markers
+# Drop into debugger on failure
+pytest --pdb
 
-```bash
-pytest -m unit                     # Only unit tests
-pytest -m integration              # Only integration tests
-pytest -m slow                     # Only slow tests
-pytest -m "not slow"               # Skip slow tests
-```
-
-### Parallel Execution
-
-```bash
-pytest -n auto                     # Use all CPU cores
-pytest -n 4                        # Use 4 workers
+# Show print statements
+pytest -s
 ```
 
 ## Test Coverage
 
-### Current Coverage
+Coverage targets by module:
 
-Coverage by module (estimated):
-- services/: 75-85%
-  - Core services: 85-90%
-  - ML services: 70-80%
-  - Integration services: 60-75%
-- models/: 80-85%
-  - ML pipeline: 85%
-  - Graph engine: 80%
-  - Database models: 85%
-- API endpoints: 70-80%
-
-### Coverage Report
-
-```bash
-pytest --cov=. --cov-report=html --cov-report=term
-```
-
-Generate coverage badge:
-```bash
-coverage-badge -o coverage.svg
-```
-
-View coverage:
-- HTML: open htmlcov/index.html
-- Terminal: pytest output
-- Badge: coverage.svg
+| Module | Target | Description |
+|--------|--------|-------------|
+| services/ (core) | 85-90% | Auth, security, caching |
+| services/ (ML) | 70-80% | Ollama, NLP, RAG |
+| services/ (integration) | 60-75% | YouTube, calendar, push |
+| models/ | 80-85% | ML pipeline, graph, database |
+| API endpoints | 70-80% | Request/response validation |
 
 ## Writing Tests
 
-### Test Templates
+### Unit Test Template
 
-Unit Test Template
 ```python
 import pytest
 from services.example_service import ExampleService
 
 class TestExampleService:
-    
+
     @pytest.fixture
     def service(self):
         return ExampleService()
-    
+
     def test_basic_functionality(self, service):
         result = service.do_something()
         assert result is not None
         assert result["status"] == "success"
-    
+
     def test_error_handling(self, service):
         with pytest.raises(ValueError):
             service.invalid_input("bad data")
-    
+
     def test_edge_case(self, service):
         result = service.process_empty_data([])
         assert result == []
 ```
 
-Async Test Template
+### Async Test Template
+
 ```python
 import pytest
-from services.async_service import AsyncService
 
 @pytest.mark.asyncio
 async def test_async_operation():
@@ -268,7 +200,8 @@ async def test_async_error():
         await service.failing_method()
 ```
 
-Integration Test Template
+### API Integration Test Template
+
 ```python
 import pytest
 from fastapi.testclient import TestClient
@@ -287,33 +220,15 @@ def test_endpoint_integration(client):
     assert "analysis" in response.json()
 ```
 
-### Best Practices for Writing Tests
+### Naming Convention
 
-Test Naming Convention
 ```
 test_<function_name>_<condition>_<expected_result>
 
 Examples:
-test_predict_regret_with_valid_input_returns_score
-test_detect_bias_with_sunk_cost_fallacy_identifies_correctly
-test_empty_input_raises_value_error
-```
-
-Test Structure (Arrange-Act-Assert)
-```python
-def test_decision_analysis():
-    # Arrange: Set up test data
-    decision = {
-        "type": "job_change",
-        "description": "Switch to startup"
-    }
-    
-    # Act: Execute the function
-    result = analyze_decision(decision)
-    
-    # Assert: Verify results
-    assert result["regret_score"] is not None
-    assert result["confidence"] > 0.5
+  test_predict_regret_with_valid_input_returns_score
+  test_detect_bias_with_sunk_cost_identifies_correctly
+  test_empty_input_raises_value_error
 ```
 
 ## Fixtures and Mocks
@@ -332,15 +247,6 @@ def sample_decision():
         "description": "Switching from Company A to Company B",
         "predicted_regret": 35.0,
         "factors": ["salary", "growth", "culture"]
-    }
-
-@pytest.fixture
-def sample_journal_entry():
-    return {
-        "title": "Career Decision Reflection",
-        "content": "Considering my next move...",
-        "emotions": ["anxious", "hopeful"],
-        "decision_type": "job_change"
     }
 
 @pytest.fixture
@@ -364,8 +270,7 @@ def test_with_mock_service():
         mock_instance = Mock()
         mock_instance.chat.return_value = "Mocked response"
         mock.return_value = mock_instance
-        
-        # Test code
+
         result = mock_instance.chat("test")
         assert result == "Mocked response"
 
@@ -375,266 +280,45 @@ async def test_with_async_mock():
         mock_instance = AsyncMock()
         mock_instance.retrieve.return_value = ["result1", "result2"]
         mock.return_value = mock_instance
-        
-        # Test code
+
         results = await mock_instance.retrieve("query")
         assert len(results) == 2
 ```
 
-## Test Categories
-
-### Unit Tests
-
-Focus: Individual functions/methods
-Scope: Isolated from external dependencies
-Speed: Fast (< 100ms per test)
-Examples:
-```python
-test_predict_regret()           # ML prediction
-test_classify_intent()          # NLP function
-test_detect_bias()              # Bias detection
-test_format_response()          # Response formatting
-```
-
-### Integration Tests
-
-Focus: Multiple components working together
-Scope: Services interacting
-Speed: Medium (100ms - 1s per test)
-Examples:
-```python
-test_decision_analysis_workflow()      # Multi-service flow
-test_api_with_database()               # API + DB
-test_nlp_with_bias_interceptor()       # Service combo
-```
-
-### API Tests
-
-Focus: HTTP endpoints
-Scope: Full request/response cycle
-Speed: Medium to slow
-Examples:
-```python
-test_post_decision_endpoint()
-test_get_analytics_endpoint()
-test_error_response_format()
-```
-
-### Performance Tests
-
-Focus: Response time and throughput
-Scope: Realistic workloads
-Speed: Varies
-Examples:
-```python
-test_batch_prediction_performance()
-test_concurrent_requests()
-test_large_dataset_processing()
-```
-
-## Test Execution Flow
-
-```mermaid
-graph TD
-    A["pytest execution"] --> B["Parse command line arguments"]
-    B --> C["Discover test files test_*.py"]
-    C --> D["Load conftest.py<br/>fixtures, hooks"]
-    D --> E["For each test file"]
-    E --> F["Import module"]
-    F --> G["Find test classes/functions"]
-    G --> H["For each test"]
-    H --> I["Get fixtures"]
-    I --> J["Run setup"]
-    J --> K["Execute test"]
-    K --> L["Check assertions"]
-    L --> M["Run cleanup"]
-    M --> N["Record result"]
-    N --> O["Report module results"]
-    O --> P["Generate final report"]
-    P --> Q["Test counts<br/>Pass/fail status<br/>Coverage metrics<br/>Performance data"]
-```
-
 ## CI/CD Integration
 
-### GitHub Actions Configuration
+### Pipeline Test Step
 
-```yaml
-name: Tests
+Tests run automatically in the GitHub Actions CI/CD pipeline:
 
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install pytest pytest-cov pytest-asyncio
-    
-    - name: Run tests
-      run: pytest --cov=. --cov-report=xml
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v2
+```mermaid
+graph LR
+    PUSH["Push / PR"] --> LINT["Flake8<br/>Critical errors"]
+    LINT --> TEST["pytest<br/>All tests + coverage"]
+    TEST --> SECURITY["Bandit<br/>Security scan"]
+    SECURITY --> BUILD["Docker Build"]
 ```
 
-### Pre-commit Hooks
-
+The pipeline runs:
 ```bash
-# .pre-commit-config.yaml
-repos:
-  - repo: local
-    hooks:
-      - id: pytest
-        name: pytest
-        entry: pytest
-        language: system
-        types: [python]
-        stages: [commit]
+pytest tests/ -v --cov=. --cov-report=xml || true
 ```
 
-## Known Issues and Limitations
+Coverage reports are uploaded to Codecov on pushes to `main`.
 
-### Async Testing
-- Event loop fixture required for async tests
-- Mock async functions with AsyncMock
+## Known Limitations
 
-### External Services
-- YouTube API requires authentication
-- Ollama service needs to be running
-- Database tests use in-memory SQLite by default
-
-### Performance Tests
-- Results vary by system
-- Use relative comparisons
-- Run multiple times for consistency
-
-## Debugging Tests
-
-### Debug Mode
-
-```bash
-pytest -vv --tb=long            # Verbose with long traceback
-pytest --pdb                     # Drop into debugger on failure
-pytest --trace                   # Drop into debugger at start
-```
-
-### Print Debugging
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-def test_something():
-    logger.debug("Debug message")
-    print("Direct print")
-    result = function_to_test()
-    assert result
-```
-
-### Test Output
-
-```bash
-pytest -s                        # Show stdout
-pytest -vv                       # Very verbose
-pytest --tb=short               # Short traceback
-pytest --tb=no                  # No traceback
-```
-
-## Continuous Improvement
-
-### Metrics to Track
-
-- Test pass rate (target: 100%)
-- Code coverage (target: >80%)
-- Test execution time (target: <10 min)
-- False positive rate (target: 0%)
-- Test flakiness (target: 0%)
-
-### Adding New Tests
-
-When adding features:
-1. Write failing test first (TDD)
-2. Implement feature
-3. Verify test passes
-4. Add edge case tests
-5. Update documentation
-
-## Test Checklist
-
-Before committing:
-- All tests pass locally
-- Coverage increased or maintained
-- No new warnings or errors
-- Test names are descriptive
-- Edge cases covered
-- Error paths tested
-- Integration points verified
-- Documentation updated
+- **Async testing** -- requires `@pytest.mark.asyncio` decorator and `AsyncMock` for async mocks
+- **Ollama dependency** -- tests requiring LLM inference are mocked to avoid requiring a running Ollama instance
+- **Database tests** -- use in-memory SQLite by default for isolation
+- **YouTube API** -- tests mock the API to avoid authentication requirements
 
 ## Troubleshooting
 
-### Import Errors
-- Check sys.path in conftest.py
-- Verify module structure
-- Test individual imports
-
-### Fixture Issues
-- Check fixture scope
-- Verify dependencies
-- Look for circular references
-
-### Async Issues
-- Use @pytest.mark.asyncio
-- Use AsyncMock for mocking
-- Check event loop fixture
-
-### Database Issues
-- Clear test database between runs
-- Use in-memory SQLite for tests
-- Check transaction handling
-
-## Performance Benchmarking
-
-### Benchmark Template
-
-```python
-def test_prediction_performance(benchmark):
-    predictor = EnhancedRegretPredictor()
-    features = {"type": "job_change", ...}
-    
-    # Benchmark the function
-    result = benchmark(predictor.predict_regret, features)
-    assert result is not None
-
-# Run with: pytest --benchmark-only
-```
-
-## Resources
-
-- pytest documentation: https://docs.pytest.org/
-- pytest-asyncio: https://docs.pytest.org/
-- Coverage.py: https://coverage.readthedocs.io/
-- unittest.mock: https://docs.python.org/3/library/unittest.mock.html
-
-## Summary
-
-This test suite ensures the Career Decision Regret System maintains:
-- Code quality and reliability
-- Performance standards
-- Security and privacy
-- API contracts
-- Component integration
-- User experience consistency
-
-Run tests regularly, especially before deployment, to catch issues early and maintain system stability.
+| Issue | Solution |
+|-------|----------|
+| Import errors | Check `sys.path` in conftest.py, verify module structure |
+| Fixture not found | Check fixture scope and dependencies |
+| Async test hangs | Ensure event_loop fixture is configured in conftest.py |
+| Database test fails | Clear test database, check transaction handling |
+| Mock not applied | Verify patch target matches the import path in the module under test |

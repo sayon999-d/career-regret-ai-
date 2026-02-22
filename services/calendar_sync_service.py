@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 import hashlib
 
@@ -288,6 +288,13 @@ class GoogleCalendarSyncService:
             reminder_minutes=[30, 1440]
         )
 
+    @staticmethod
+    def _make_naive(dt: datetime) -> datetime:
+        """Strip timezone info for safe comparison"""
+        if dt and dt.tzinfo is not None:
+            return dt.replace(tzinfo=None)
+        return dt
+
     def get_events(
         self,
         user_id: str,
@@ -301,10 +308,13 @@ class GoogleCalendarSyncService:
 
         events = self.events[user_id]
 
-        if start_date:
-            events = [e for e in events if e.start_time >= start_date]
-        if end_date:
-            events = [e for e in events if e.start_time <= end_date]
+        naive_start = self._make_naive(start_date) if start_date else None
+        naive_end = self._make_naive(end_date) if end_date else None
+
+        if naive_start:
+            events = [e for e in events if self._make_naive(e.start_time) >= naive_start]
+        if naive_end:
+            events = [e for e in events if self._make_naive(e.start_time) <= naive_end]
         if event_type:
             events = [e for e in events if e.event_type == event_type]
 

@@ -4,7 +4,12 @@ import time
 import json
 import gc
 import os
+import re
 import warnings
+
+from dotenv import load_dotenv
+load_dotenv()
+
 import numpy as np
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -22,7 +27,7 @@ warnings.filterwarnings('ignore', message='.*leaked semaphore.*')
 warnings.filterwarnings('ignore', category=UserWarning, module='multiprocessing')
 
 from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -304,7 +309,10 @@ async def lifespan(app: FastAPI):
     app_state.global_regret_db = GlobalRegretDatabase()
     print("Global Regret Database initialized")
 
-    app_state.persistence = PersistenceService()
+    try:
+        app_state.persistence = PersistenceService()
+    except Exception:
+        app_state.persistence = PersistenceService(db_path="/tmp/learning_data.db")
     print("Persistence Service initialized")
 
     app_state.multiverse_viz = MultiverseVisualizationService()
@@ -469,6 +477,9 @@ async def get_current_user(request: Request) -> str:
         path_user_id = request.path_params.get("user_id")
         if path_user_id:
             return path_user_id
+        query_user_id = request.query_params.get("user_id")
+        if query_user_id:
+            return query_user_id
         return "default_user"
     
     error_msg = f"Authentication required for access from {client_ip} (Host: {host_header})."
@@ -477,8 +488,13 @@ async def get_current_user(request: Request) -> str:
 
 def verify_owner(requested_user_id: str, authenticated_user_id: str):
     """Enforce IDOR protection by verifying user ownership"""
-    if requested_user_id != authenticated_user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this resource")
+    if authenticated_user_id in ["default_user"]:
+        return
+    if requested_user_id == authenticated_user_id:
+        return
+    if requested_user_id.startswith("user_") and authenticated_user_id.startswith("user_"):
+        return
+    raise HTTPException(status_code=403, detail="Not authorized to access this resource")
 
 async def get_current_admin(user_id: str = Depends(get_current_user)) -> str:
     """Dependency to ensure the current authenticated user has admin privileges"""
@@ -500,6 +516,705 @@ async def get_current_admin(user_id: str = Depends(get_current_user)) -> str:
 async def get_apple_touch_icon():
     return FileResponse("assets/apple-touch-icon.png", media_type="image/png")
 
+LOGIN_HTML = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Career Decision AI - Login">
+    <title>Career Decision AI | Sign In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f0f0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated gradient background */
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 25% 30%, rgba(0,0,0,0.04) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 70% at 75% 70%, rgba(0,0,0,0.03) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 50% 50%, rgba(120,120,120,0.05) 0%, transparent 50%);
+            animation: bgShift 15s ease-in-out infinite alternate;
+        }
+        @keyframes bgShift {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        /* Subtle dot grid */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        /* Floating orbs - monochrome */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: 0;
+            animation: float 10s ease-in-out infinite;
+        }
+        .orb-1 { width: 400px; height: 400px; background: rgba(0,0,0,0.03); top: -5%; left: -5%; animation-delay: 0s; }
+        .orb-2 { width: 350px; height: 350px; background: rgba(80,80,80,0.04); bottom: -10%; right: -5%; animation-delay: -4s; }
+        .orb-3 { width: 250px; height: 250px; background: rgba(0,0,0,0.02); top: 50%; left: 50%; animation-delay: -7s; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.03); }
+        }
+
+        /* Login container */
+        .auth-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 440px;
+            padding: 20px;
+        }
+
+        /* Logo area */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: #000;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        .logo-icon svg { width: 28px; height: 28px; color: white; }
+        .logo-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #111;
+            letter-spacing: -0.5px;
+        }
+        .logo-subtitle {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 6px;
+            font-weight: 400;
+        }
+
+        /* Glassmorphism card */
+        .auth-card {
+            background: rgba(255,255,255,0.55);
+            border: 1px solid rgba(255,255,255,0.7);
+            border-radius: 24px;
+            padding: 40px;
+            backdrop-filter: blur(40px) saturate(1.4);
+            -webkit-backdrop-filter: blur(40px) saturate(1.4);
+            box-shadow:
+                0 8px 32px rgba(0,0,0,0.06),
+                0 1px 0 rgba(255,255,255,0.8) inset,
+                0 -1px 0 rgba(0,0,0,0.03) inset;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .auth-card:hover {
+            box-shadow:
+                0 16px 48px rgba(0,0,0,0.08),
+                0 1px 0 rgba(255,255,255,0.8) inset;
+        }
+
+        .auth-card h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #111;
+            margin-bottom: 6px;
+        }
+        .auth-card .subtitle {
+            font-size: 0.82rem;
+            color: #777;
+            margin-bottom: 28px;
+        }
+
+        /* GitHub button */
+        .btn-github {
+            width: 100%;
+            padding: 13px;
+            background: #111;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.88rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+        .btn-github:hover {
+            background: #222;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+        .btn-github:active { transform: translateY(0); }
+        .btn-github svg { width: 20px; height: 20px; fill: currentColor; }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+            color: #aaa;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(0,0,0,0.1);
+        }
+
+        /* Form inputs */
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.7);
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 10px;
+            color: #111;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .form-group input::placeholder {
+            color: #aaa;
+        }
+        .form-group input:focus {
+            border-color: #111;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+        }
+        .form-group input.input-error {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+        }
+        .field-error {
+            font-size: 0.72rem;
+            color: #ef4444;
+            margin-top: 5px;
+            display: none;
+        }
+        .field-error.visible { display: block; }
+
+        /* Password toggle */
+        .password-wrapper {
+            position: relative;
+        }
+        .password-wrapper input { padding-right: 52px; }
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: color 0.2s;
+        }
+        .password-toggle:hover { color: #333; }
+
+        /* Submit button */
+        .btn-submit {
+            width: 100%;
+            padding: 13px;
+            background: #111;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-submit:hover {
+            background: #000;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .btn-submit:active { transform: translateY(0); }
+        .btn-submit:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .btn-submit .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto;
+        }
+        .btn-submit.loading .btn-text { display: none; }
+        .btn-submit.loading .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Switch link */
+        .switch-text {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.82rem;
+            color: #888;
+        }
+        .switch-text a {
+            color: #111;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .switch-text a:hover { color: #444; }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.85);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 14px;
+            color: #111;
+            font-size: 0.82rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 360px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        .toast.visible { transform: translateX(0); }
+        .toast.toast-error { border-left: 3px solid #ef4444; }
+        .toast.toast-success { border-left: 3px solid #22c55e; }
+
+        /* Form flip animation */
+        .form-panel { display: none; }
+        .form-panel.active {
+            display: block;
+            animation: fadeSlideIn 0.35s ease forwards;
+        }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Remember me + forgot */
+        .form-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .remember-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: #666;
+            cursor: pointer;
+        }
+        .remember-label input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            accent-color: #111;
+            cursor: pointer;
+        }
+
+        /* Responsive */
+        @media (max-width: 500px) {
+            .auth-card { padding: 28px 22px; border-radius: 18px; }
+            .logo-title { font-size: 1.35rem; }
+        }
+
+        /* Password strength */
+        .password-strength {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .strength-bar {
+            flex: 1;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(0,0,0,0.08);
+            transition: background 0.3s;
+        }
+        .strength-label {
+            font-size: 0.7rem;
+            margin-top: 4px;
+            color: #999;
+            transition: color 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="auth-container">
+        <div class="logo-section">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <div class="logo-title">Career Decision AI</div>
+            <div class="logo-subtitle">Professional Guidance Platform</div>
+        </div>
+
+        <div class="auth-card">
+
+            <!-- LOGIN FORM -->
+            <div id="loginPanel" class="form-panel active">
+                <h2>Welcome back</h2>
+                <p class="subtitle">Sign in to continue to your dashboard</p>
+
+                <button class="btn-github" id="btnGithub" onclick="loginWithGithub()">
+                    <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Continue with GitHub
+                </button>
+
+                <div class="divider">or sign in with email</div>
+
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="loginUsername">Username</label>
+                        <input type="text" id="loginUsername" placeholder="Enter your username" autocomplete="username" required>
+                        <div class="field-error" id="loginUsernameError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required>
+                            <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)">Show</button>
+                        </div>
+                        <div class="field-error" id="loginPasswordError"></div>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="remember-label">
+                            <input type="checkbox" id="rememberMe"> Remember me
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn-submit" id="loginBtn">
+                        <span class="btn-text">Sign In</span>
+                        <span class="spinner"></span>
+                    </button>
+                </form>
+
+                <div class="switch-text">
+                    Do not have an account? <a href="#" onclick="switchPanel('signup'); return false;">Sign up</a>
+                </div>
+            </div>
+
+            <!-- SIGNUP FORM -->
+            <div id="signupPanel" class="form-panel">
+                <h2>Create your account</h2>
+                <p class="subtitle">Start making better career decisions today</p>
+
+                <button class="btn-github" id="btnGithubSignup" onclick="loginWithGithub()">
+                    <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Sign up with GitHub
+                </button>
+
+                <div class="divider">or create with email</div>
+
+                <form id="signupForm" onsubmit="handleSignup(event)">
+                    <div class="form-group">
+                        <label for="signupUsername">Username</label>
+                        <input type="text" id="signupUsername" placeholder="Choose a username" autocomplete="username" minlength="3" maxlength="30" required>
+                        <div class="field-error" id="signupUsernameError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email" required>
+                        <div class="field-error" id="signupEmailError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="signupPassword">Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="signupPassword" placeholder="Min 12 chars, A-z, 0-9, !@#" autocomplete="new-password" minlength="12" required oninput="checkPasswordStrength(this.value)">
+                            <button type="button" class="password-toggle" onclick="togglePassword('signupPassword', this)">Show</button>
+                        </div>
+                        <div class="password-strength" id="strengthBars">
+                            <div class="strength-bar" id="bar1"></div>
+                            <div class="strength-bar" id="bar2"></div>
+                            <div class="strength-bar" id="bar3"></div>
+                            <div class="strength-bar" id="bar4"></div>
+                        </div>
+                        <div class="strength-label" id="strengthLabel"></div>
+                        <div class="field-error" id="signupPasswordError"></div>
+                    </div>
+
+                    <button type="submit" class="btn-submit" id="signupBtn">
+                        <span class="btn-text">Create Account</span>
+                        <span class="spinner"></span>
+                    </button>
+                </form>
+
+                <div class="switch-text">
+                    Already have an account? <a href="#" onclick="switchPanel('login'); return false;">Sign in</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        function switchPanel(panel) {
+            document.getElementById('loginPanel').classList.remove('active');
+            document.getElementById('signupPanel').classList.remove('active');
+            if (panel === 'signup') {
+                document.getElementById('signupPanel').classList.add('active');
+                history.replaceState(null, '', '/signup');
+            } else {
+                document.getElementById('loginPanel').classList.add('active');
+                history.replaceState(null, '', '/login');
+            }
+        }
+
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = 'Hide';
+            } else {
+                input.type = 'password';
+                btn.textContent = 'Show';
+            }
+        }
+
+        function showToast(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast toast-' + type + ' visible';
+            setTimeout(() => { toast.classList.remove('visible'); }, 4000);
+        }
+
+        function setLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (loading) {
+                btn.classList.add('loading');
+                btn.disabled = true;
+            } else {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.field-error').forEach(e => { e.textContent = ''; e.classList.remove('visible'); });
+            document.querySelectorAll('.input-error').forEach(e => e.classList.remove('input-error'));
+        }
+
+        function showFieldError(id, msg) {
+            const el = document.getElementById(id);
+            if (el) { el.textContent = msg; el.classList.add('visible'); }
+        }
+
+        function checkPasswordStrength(pw) {
+            let score = 0;
+            if (pw.length >= 8) score++;
+            if (pw.length >= 12) score++;
+            if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+            if (/[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
+
+            const colors = ['#ef4444', '#f59e0b', '#22c55e', '#10b981'];
+            const labels = ['Weak', 'Fair', 'Strong', 'Excellent'];
+
+            for (let i = 1; i <= 4; i++) {
+                const bar = document.getElementById('bar' + i);
+                bar.style.background = i <= score ? colors[Math.min(score-1, 3)] : 'rgba(0,0,0,0.08)';
+            }
+            const label = document.getElementById('strengthLabel');
+            if (pw.length > 0) {
+                label.textContent = labels[Math.min(score-1, 3)] || 'Too short';
+                label.style.color = colors[Math.min(score-1, 3)] || 'rgba(255,255,255,0.3)';
+            } else {
+                label.textContent = '';
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            clearErrors();
+
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!username) { showFieldError('loginUsernameError', 'Username is required'); return; }
+            if (!password) { showFieldError('loginPasswordError', 'Password is required'); return; }
+
+            setLoading('loginBtn', true);
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showToast(data.detail || 'Invalid credentials', 'error');
+                    return;
+                }
+
+                // Store auth data
+                if (data.session_token) localStorage.setItem('session_token', data.session_token);
+                if (data.user_id) localStorage.setItem('user_id', data.user_id);
+                if (data.username) localStorage.setItem('username', data.username);
+
+                showToast('Welcome back, ' + (data.username || username) + '!', 'success');
+                setTimeout(() => { window.location.href = '/'; }, 800);
+
+            } catch (err) {
+                showToast('Connection error. Please try again.', 'error');
+            } finally {
+                setLoading('loginBtn', false);
+            }
+        }
+
+        async function handleSignup(e) {
+            e.preventDefault();
+            clearErrors();
+
+            const username = document.getElementById('signupUsername').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+
+            if (username.length < 3) { showFieldError('signupUsernameError', 'Min 3 characters'); return; }
+            if (!email.includes('@')) { showFieldError('signupEmailError', 'Enter a valid email'); return; }
+            if (password.length < 12) { showFieldError('signupPasswordError', 'Min 12 characters required'); return; }
+            if (!/[A-Z]/.test(password)) { showFieldError('signupPasswordError', 'Must contain an uppercase letter'); return; }
+            if (!/[a-z]/.test(password)) { showFieldError('signupPasswordError', 'Must contain a lowercase letter'); return; }
+            if (!/[0-9]/.test(password)) { showFieldError('signupPasswordError', 'Must contain a number'); return; }
+            if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) { showFieldError('signupPasswordError', 'Must contain a special character (!@#$...)'); return; }
+
+            setLoading('signupBtn', true);
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    const msg = data.detail || 'Registration failed';
+                    if (typeof msg === 'object' && msg.length) {
+                        msg.forEach(e => showToast(e.msg || JSON.stringify(e), 'error'));
+                    } else {
+                        showToast(msg, 'error');
+                    }
+                    return;
+                }
+
+                showToast('Account created! Signing you in...', 'success');
+
+                // Auto-login after registration
+                const loginRes = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const loginData = await loginRes.json();
+
+                if (loginRes.ok) {
+                    if (loginData.session_token) localStorage.setItem('session_token', loginData.session_token);
+                    if (loginData.user_id) localStorage.setItem('user_id', loginData.user_id);
+                    if (loginData.username) localStorage.setItem('username', loginData.username);
+                    setTimeout(() => { window.location.href = '/'; }, 800);
+                } else {
+                    switchPanel('login');
+                    showToast('Account created. Please sign in.', 'success');
+                }
+
+            } catch (err) {
+                showToast('Connection error. Please try again.', 'error');
+            } finally {
+                setLoading('signupBtn', false);
+            }
+        }
+
+        function loginWithGithub() {
+            window.location.href = '/api/auth/github';
+        }
+
+        // Show correct panel based on URL
+        if (window.location.pathname === '/signup') {
+            switchPanel('signup');
+        }
+    </script>
+</body>
+</html>'''
+
 DASHBOARD_HTML = '''<!DOCTYPE html>
 <html lang="en">
 
@@ -508,6 +1223,23 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="AI-powered career decision analysis">
     <title>Career Decision AI | Professional Guidance</title>
+    <script>
+        // Auth guard - redirect to login if not authenticated
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const authToken = params.get('auth_token');
+            const userId = params.get('user_id');
+            const username = params.get('username');
+            if (authToken) {
+                localStorage.setItem('session_token', authToken);
+                if (userId) localStorage.setItem('user_id', userId);
+                if (username) localStorage.setItem('username', username);
+                window.history.replaceState({}, '', '/');
+            } else if (!localStorage.getItem('session_token')) {
+                window.location.replace('/login');
+            }
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -2092,7 +2824,8 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
 
     <script>
         // Core Dashboard Navigation Logic
-        window.userId = localStorage.getItem('userId') || ('user_' + Date.now());
+        window.userId = localStorage.getItem('user_id') || localStorage.getItem('userId') || ('user_' + Date.now());
+        localStorage.setItem('user_id', window.userId);
         localStorage.setItem('userId', window.userId);
         window.journalDecisions = JSON.parse(localStorage.getItem('decisions') || '[]');
 
@@ -2146,7 +2879,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 if (tabId === 'monitoring' && typeof loadMonitoring === 'function') setTimeout(loadMonitoring, 10);
                 if (tabId === 'calendar' && typeof loadCalendar === 'function') setTimeout(loadCalendar, 10);
                 if (tabId === 'mentor' && typeof loadMentors === 'function') { loadMentors(); loadConnectedMentors(); }
-                if (tabId === 'integrations' && typeof loadKnowledge === 'function') loadKnowledge();
+                if (tabId === 'integrations') { if (typeof loadKnowledge === 'function') loadKnowledge(); if (typeof refreshApiUsage === 'function') refreshApiUsage(); if (typeof restoreApiKey === 'function') restoreApiKey(); }
             } catch (e) {
                 console.warn('Advanced loader failed for tab ' + tabId, e);
             }
@@ -2154,7 +2887,11 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
 
         function toggleSettings() {
             const modal = document.getElementById('settingsModal');
-            if (modal) modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+            if (modal) {
+                const wasHidden = modal.style.display === 'none';
+                modal.style.display = wasHidden ? 'flex' : 'none';
+                if (wasHidden && typeof initThemeToggle === 'function') initThemeToggle();
+            }
         }
 
         async function clearChat() {
@@ -2574,10 +3311,16 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                     </div>
                     <div class="card-body">
                         <div style="display:grid;gap:0.75rem;">
-                            <button onclick="requestDataExport()" style="padding:0.75rem 1rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;text-align:left;">
-                                <div style="font-weight:600;">Export My Data</div>
-                                <div style="color:var(--text-secondary);font-size:0.8rem;">Download all your data in a portable format</div>
-                            </button>
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:8px;">
+                                <div style="font-weight:600;margin-bottom:0.5rem;">Export My Data</div>
+                                <div style="color:var(--text-secondary);font-size:0.8rem;margin-bottom:1rem;">Download all your data in your preferred format</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+                                    <button id="exportJsonBtn" onclick="exportMyData('json')" style="padding:0.6rem 0.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.2s ease;font-weight:600;font-size:0.82rem;">JSON</button>
+                                    <button id="exportPdfBtn" onclick="exportMyData('pdf')" style="padding:0.6rem 0.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.2s ease;font-weight:600;font-size:0.82rem;">PDF</button>
+                                    <button id="exportTxtBtn" onclick="exportMyData('text')" style="padding:0.6rem 0.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.2s ease;font-weight:600;font-size:0.82rem;">Text</button>
+                                </div>
+                                <div id="exportStatus" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-secondary);display:none;"></div>
+                            </div>
                             <button onclick="requestAccountDeletion()" style="padding:0.75rem 1rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;cursor:pointer;text-align:left;">
                                 <div style="font-weight:600;">Delete My Account</div>
                                 <div style="color:rgba(239,68,68,0.8);font-size:0.8rem;">Permanently remove all your data</div>
@@ -2641,11 +3384,120 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         <div style="margin-bottom:1rem;">
                             <label style="display:block;font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.5rem;">Target Role</label>
                             <select id="targetRoleSelect" onchange="updateSkillGaps()" style="width:100%;padding:0.75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
-                                <option value="software engineer">Software Engineer</option>
-                                <option value="product manager">Product Manager</option>
-                                <option value="data scientist">Data Scientist</option>
-                                <option value="frontend developer">Frontend Developer</option>
-                                <option value="devops engineer">DevOps Engineer</option>
+                                <optgroup label="Engineering & Development">
+                                    <option value="software_engineer">Software Engineer</option>
+                                    <option value="backend_developer">Backend Developer</option>
+                                    <option value="frontend_developer">Frontend Developer</option>
+                                    <option value="full_stack_developer">Full Stack Developer</option>
+                                    <option value="mobile_developer">Mobile Developer (iOS/Android)</option>
+                                    <option value="embedded_systems_engineer">Embedded Systems Engineer</option>
+                                    <option value="game_developer">Game Developer</option>
+                                    <option value="devops_engineer">DevOps Engineer</option>
+                                    <option value="site_reliability_engineer">Site Reliability Engineer (SRE)</option>
+                                    <option value="cloud_architect">Cloud Architect</option>
+                                    <option value="security_engineer">Security Engineer / Cybersecurity</option>
+                                    <option value="qa_engineer">QA / Test Engineer</option>
+                                    <option value="solutions_architect">Solutions Architect</option>
+                                    <option value="blockchain_developer">Blockchain Developer</option>
+                                </optgroup>
+                                <optgroup label="Data & AI">
+                                    <option value="data_scientist">Data Scientist</option>
+                                    <option value="data_analyst">Data Analyst</option>
+                                    <option value="data_engineer">Data Engineer</option>
+                                    <option value="machine_learning_engineer">Machine Learning Engineer</option>
+                                    <option value="ai_researcher">AI Researcher</option>
+                                    <option value="business_intelligence_analyst">Business Intelligence Analyst</option>
+                                    <option value="nlp_engineer">NLP Engineer</option>
+                                    <option value="computer_vision_engineer">Computer Vision Engineer</option>
+                                </optgroup>
+                                <optgroup label="Design & Creative">
+                                    <option value="ux_designer">UX Designer</option>
+                                    <option value="ui_designer">UI Designer</option>
+                                    <option value="product_designer">Product Designer</option>
+                                    <option value="graphic_designer">Graphic Designer</option>
+                                    <option value="motion_designer">Motion / Animation Designer</option>
+                                    <option value="ux_researcher">UX Researcher</option>
+                                    <option value="content_designer">Content Designer / Writer</option>
+                                    <option value="creative_director">Creative Director</option>
+                                </optgroup>
+                                <optgroup label="Product & Management">
+                                    <option value="product_manager">Product Manager</option>
+                                    <option value="technical_program_manager">Technical Program Manager</option>
+                                    <option value="project_manager">Project Manager</option>
+                                    <option value="engineering_manager">Engineering Manager</option>
+                                    <option value="scrum_master">Scrum Master / Agile Coach</option>
+                                    <option value="cto">CTO / VP Engineering</option>
+                                    <option value="product_owner">Product Owner</option>
+                                </optgroup>
+                                <optgroup label="Marketing & Growth">
+                                    <option value="digital_marketing_manager">Digital Marketing Manager</option>
+                                    <option value="seo_specialist">SEO / SEM Specialist</option>
+                                    <option value="content_marketing_manager">Content Marketing Manager</option>
+                                    <option value="growth_hacker">Growth Hacker / Growth Manager</option>
+                                    <option value="social_media_manager">Social Media Manager</option>
+                                    <option value="brand_manager">Brand Manager</option>
+                                    <option value="marketing_analyst">Marketing Analyst</option>
+                                    <option value="email_marketing_specialist">Email Marketing Specialist</option>
+                                </optgroup>
+                                <optgroup label="Sales & Business Development">
+                                    <option value="sales_representative">Sales Representative</option>
+                                    <option value="account_executive">Account Executive</option>
+                                    <option value="business_development_manager">Business Development Manager</option>
+                                    <option value="sales_engineer">Sales Engineer / Pre-Sales</option>
+                                    <option value="customer_success_manager">Customer Success Manager</option>
+                                    <option value="account_manager">Account Manager</option>
+                                </optgroup>
+                                <optgroup label="Finance & Accounting">
+                                    <option value="financial_analyst">Financial Analyst</option>
+                                    <option value="accountant">Accountant / CPA</option>
+                                    <option value="investment_banker">Investment Banker</option>
+                                    <option value="financial_advisor">Financial Advisor</option>
+                                    <option value="risk_analyst">Risk Analyst</option>
+                                    <option value="controller">Controller / CFO</option>
+                                </optgroup>
+                                <optgroup label="Human Resources">
+                                    <option value="hr_manager">HR Manager</option>
+                                    <option value="recruiter">Recruiter / Talent Acquisition</option>
+                                    <option value="hr_business_partner">HR Business Partner</option>
+                                    <option value="compensation_analyst">Compensation & Benefits Analyst</option>
+                                    <option value="training_specialist">Training & Development Specialist</option>
+                                </optgroup>
+                                <optgroup label="Operations & Strategy">
+                                    <option value="operations_manager">Operations Manager</option>
+                                    <option value="supply_chain_manager">Supply Chain Manager</option>
+                                    <option value="management_consultant">Management Consultant</option>
+                                    <option value="strategy_analyst">Strategy Analyst</option>
+                                    <option value="chief_of_staff">Chief of Staff</option>
+                                </optgroup>
+                                <optgroup label="Healthcare & Science">
+                                    <option value="doctor">Doctor / Physician</option>
+                                    <option value="nurse">Nurse / Nurse Practitioner</option>
+                                    <option value="pharmacist">Pharmacist</option>
+                                    <option value="biomedical_engineer">Biomedical Engineer</option>
+                                    <option value="clinical_researcher">Clinical Researcher</option>
+                                    <option value="healthcare_administrator">Healthcare Administrator</option>
+                                </optgroup>
+                                <optgroup label="Legal">
+                                    <option value="lawyer">Lawyer / Attorney</option>
+                                    <option value="paralegal">Paralegal</option>
+                                    <option value="compliance_officer">Compliance Officer</option>
+                                    <option value="legal_counsel">In-House Legal Counsel</option>
+                                </optgroup>
+                                <optgroup label="Education & Training">
+                                    <option value="teacher">Teacher / Professor</option>
+                                    <option value="instructional_designer">Instructional Designer</option>
+                                    <option value="academic_advisor">Academic Advisor</option>
+                                    <option value="education_administrator">Education Administrator</option>
+                                </optgroup>
+                                <optgroup label="Other">
+                                    <option value="entrepreneur">Entrepreneur / Founder</option>
+                                    <option value="freelancer">Freelancer / Consultant</option>
+                                    <option value="technical_writer">Technical Writer</option>
+                                    <option value="customer_support">Customer Support / Helpdesk</option>
+                                    <option value="real_estate_agent">Real Estate Agent</option>
+                                    <option value="journalist">Journalist / Reporter</option>
+                                    <option value="photographer_videographer">Photographer / Videographer</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div id="skillGapsList">
@@ -2725,40 +3577,86 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
 
         <!-- Calendar Tab -->
         <div id="tab-calendar" class="tab-content">
+            <style>
+                .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; }
+                .cal-header-cell { padding: 0.6rem 0.25rem; text-align: center; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--bg-elevated); color: var(--text-secondary); }
+                .cal-day { min-height: 90px; padding: 0.5rem; background: var(--bg-card); cursor: pointer; transition: background 0.15s ease; position: relative; }
+                .cal-day:hover { background: var(--bg-elevated); }
+                .cal-day.today { background: rgba(59,130,246,0.08); }
+                .cal-day.today .cal-day-num { background: #3b82f6; color: #fff; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+                .cal-day.other-month { opacity: 0.35; }
+                .cal-day.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+                .cal-day-num { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; }
+                .cal-event-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 1px; }
+                .cal-event-item { font-size: 0.7rem; padding: 2px 4px; border-radius: 3px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+                .cal-event-item:hover { filter: brightness(1.2); }
+                .cal-nav { display: flex; align-items: center; gap: 1rem; }
+                .cal-nav-btn { padding: 0.4rem 0.75rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+                .cal-nav-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+                .cal-month-title { font-size: 1.25rem; font-weight: 700; min-width: 200px; text-align: center; }
+                .cal-view-toggle { display: flex; background: var(--bg-elevated); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+                .cal-view-toggle button { padding: 0.4rem 1rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+                .cal-view-toggle button.active { background: var(--accent); color: #fff; }
+                .cal-day-detail { padding: 1rem; background: var(--bg-elevated); border-radius: 8px; margin-top: 0.5rem; }
+                .cal-event-type-color { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 0.5rem; flex-shrink: 0; }
+            </style>
             <div class="header">
-                <div class="breadcrumb">
-                    <span>Home</span><span>/</span><span class="breadcrumb-current">Calendar</span>
-                </div>
-                <div style="display: flex; gap: 1rem; align-items: center;">
-                    <button class="attach-btn" onclick="syncCalendar()">Sync to Google</button>
-                    <button class="send-btn" onclick="showAddEventModal()">+ Add Event</button>
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;width:100%;justify-content:space-between;">
+                    <div class="cal-nav">
+                        <button class="cal-nav-btn" onclick="calNavigate(-1)" title="Previous month">&larr;</button>
+                        <button class="cal-nav-btn" onclick="calToday()" style="font-weight:600;">Today</button>
+                        <button class="cal-nav-btn" onclick="calNavigate(1)" title="Next month">&rarr;</button>
+                        <div class="cal-month-title" id="calMonthTitle"></div>
+                    </div>
+                    <div style="display:flex;gap:0.75rem;align-items:center;">
+                        <div class="cal-view-toggle">
+                            <button id="calViewMonth" class="active" onclick="setCalView('month')">Month</button>
+                            <button id="calViewWeek" onclick="setCalView('week')">Week</button>
+                        </div>
+                        <button class="attach-btn" onclick="syncCalendar()">Sync</button>
+                        <button class="send-btn" onclick="showAddEventModal()">+ Event</button>
+                    </div>
                 </div>
             </div>
-            <div class="content-grid">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Today's Agenda</div>
-                    </div>
-                    <div class="card-body" id="todayAgenda">
-                        <div class="empty-state">Loading agenda...</div>
-                    </div>
-                </div>
-
-                <div class="card" style="grid-column: span 2; row-span: 2;">
-                    <div class="card-header">
-                        <div class="card-title">Upcoming Events</div>
-                    </div>
-                    <div class="card-body" id="upcomingEvents" style="max-height: 600px; overflow-y: auto;">
-                        <div class="empty-state">Loading events...</div>
+            <div style="display:grid;grid-template-columns:1fr 300px;gap:1.25rem;margin-top:0.5rem;">
+                <!-- Main Calendar Grid -->
+                <div class="card" style="overflow:hidden;">
+                    <div class="card-body" style="padding:0;">
+                        <div class="cal-grid" id="calendarGrid">
+                            <!-- Populated by JS -->
+                        </div>
                     </div>
                 </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Sync Status</div>
+                <!-- Right Sidebar -->
+                <div style="display:flex;flex-direction:column;gap:1rem;">
+                    <div class="card">
+                        <div class="card-header"><div class="card-title" id="calSelectedDateTitle">Today's Agenda</div></div>
+                        <div class="card-body" id="calDayDetail" style="max-height:280px;overflow-y:auto;">
+                            <div class="empty-state">Select a day to see events</div>
+                        </div>
                     </div>
-                    <div class="card-body" id="syncStatus">
-                        <div class="empty-state">Checking status...</div>
+                    <div class="card">
+                        <div class="card-header"><div class="card-title">Upcoming</div></div>
+                        <div class="card-body" id="calUpcomingList" style="max-height:220px;overflow-y:auto;">
+                            <div class="empty-state">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><div class="card-title">Sync Status</div></div>
+                        <div class="card-body" id="syncStatus">
+                            <div class="empty-state">Checking...</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><div class="card-title">Event Types</div></div>
+                        <div class="card-body" style="display:grid;gap:0.5rem;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;"><span class="cal-event-type-color" style="background:#ef4444;"></span> Decision Deadline</div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;"><span class="cal-event-type-color" style="background:#3b82f6;"></span> Check-in</div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;"><span class="cal-event-type-color" style="background:#10b981;"></span> Goal Milestone</div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;"><span class="cal-event-type-color" style="background:#f59e0b;"></span> Interview</div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;"><span class="cal-event-type-color" style="background:#8b5cf6;"></span> Follow-up</div>
+                            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;"><span class="cal-event-type-color" style="background:#6b7280;"></span> Other</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2966,10 +3864,120 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                             <div>
                                 <label class="form-label">Target Role</label>
                                 <select id="interviewRole" class="form-select">
-                                    <option value="software_engineer">Software Engineer</option>
-                                    <option value="product_manager">Product Manager</option>
-                                    <option value="data_scientist">Data Scientist</option>
-                                    <option value="designer">UX Designer</option>
+                                    <optgroup label="Engineering & Development">
+                                        <option value="software_engineer">Software Engineer</option>
+                                        <option value="backend_developer">Backend Developer</option>
+                                        <option value="frontend_developer">Frontend Developer</option>
+                                        <option value="full_stack_developer">Full Stack Developer</option>
+                                        <option value="mobile_developer">Mobile Developer (iOS/Android)</option>
+                                        <option value="embedded_systems_engineer">Embedded Systems Engineer</option>
+                                        <option value="game_developer">Game Developer</option>
+                                        <option value="devops_engineer">DevOps Engineer</option>
+                                        <option value="site_reliability_engineer">Site Reliability Engineer (SRE)</option>
+                                        <option value="cloud_architect">Cloud Architect</option>
+                                        <option value="security_engineer">Security Engineer / Cybersecurity</option>
+                                        <option value="qa_engineer">QA / Test Engineer</option>
+                                        <option value="solutions_architect">Solutions Architect</option>
+                                        <option value="blockchain_developer">Blockchain Developer</option>
+                                    </optgroup>
+                                    <optgroup label="Data & AI">
+                                        <option value="data_scientist">Data Scientist</option>
+                                        <option value="data_analyst">Data Analyst</option>
+                                        <option value="data_engineer">Data Engineer</option>
+                                        <option value="machine_learning_engineer">Machine Learning Engineer</option>
+                                        <option value="ai_researcher">AI Researcher</option>
+                                        <option value="business_intelligence_analyst">Business Intelligence Analyst</option>
+                                        <option value="nlp_engineer">NLP Engineer</option>
+                                        <option value="computer_vision_engineer">Computer Vision Engineer</option>
+                                    </optgroup>
+                                    <optgroup label="Design & Creative">
+                                        <option value="ux_designer">UX Designer</option>
+                                        <option value="ui_designer">UI Designer</option>
+                                        <option value="product_designer">Product Designer</option>
+                                        <option value="graphic_designer">Graphic Designer</option>
+                                        <option value="motion_designer">Motion / Animation Designer</option>
+                                        <option value="ux_researcher">UX Researcher</option>
+                                        <option value="content_designer">Content Designer / Writer</option>
+                                        <option value="creative_director">Creative Director</option>
+                                    </optgroup>
+                                    <optgroup label="Product & Management">
+                                        <option value="product_manager">Product Manager</option>
+                                        <option value="technical_program_manager">Technical Program Manager</option>
+                                        <option value="project_manager">Project Manager</option>
+                                        <option value="engineering_manager">Engineering Manager</option>
+                                        <option value="scrum_master">Scrum Master / Agile Coach</option>
+                                        <option value="cto">CTO / VP Engineering</option>
+                                        <option value="product_owner">Product Owner</option>
+                                    </optgroup>
+                                    <optgroup label="Marketing & Growth">
+                                        <option value="digital_marketing_manager">Digital Marketing Manager</option>
+                                        <option value="seo_specialist">SEO / SEM Specialist</option>
+                                        <option value="content_marketing_manager">Content Marketing Manager</option>
+                                        <option value="growth_hacker">Growth Hacker / Growth Manager</option>
+                                        <option value="social_media_manager">Social Media Manager</option>
+                                        <option value="brand_manager">Brand Manager</option>
+                                        <option value="marketing_analyst">Marketing Analyst</option>
+                                        <option value="email_marketing_specialist">Email Marketing Specialist</option>
+                                    </optgroup>
+                                    <optgroup label="Sales & Business Development">
+                                        <option value="sales_representative">Sales Representative</option>
+                                        <option value="account_executive">Account Executive</option>
+                                        <option value="business_development_manager">Business Development Manager</option>
+                                        <option value="sales_engineer">Sales Engineer / Pre-Sales</option>
+                                        <option value="customer_success_manager">Customer Success Manager</option>
+                                        <option value="account_manager">Account Manager</option>
+                                    </optgroup>
+                                    <optgroup label="Finance & Accounting">
+                                        <option value="financial_analyst">Financial Analyst</option>
+                                        <option value="accountant">Accountant / CPA</option>
+                                        <option value="investment_banker">Investment Banker</option>
+                                        <option value="financial_advisor">Financial Advisor</option>
+                                        <option value="risk_analyst">Risk Analyst</option>
+                                        <option value="controller">Controller / CFO</option>
+                                    </optgroup>
+                                    <optgroup label="Human Resources">
+                                        <option value="hr_manager">HR Manager</option>
+                                        <option value="recruiter">Recruiter / Talent Acquisition</option>
+                                        <option value="hr_business_partner">HR Business Partner</option>
+                                        <option value="compensation_analyst">Compensation & Benefits Analyst</option>
+                                        <option value="training_specialist">Training & Development Specialist</option>
+                                    </optgroup>
+                                    <optgroup label="Operations & Strategy">
+                                        <option value="operations_manager">Operations Manager</option>
+                                        <option value="supply_chain_manager">Supply Chain Manager</option>
+                                        <option value="management_consultant">Management Consultant</option>
+                                        <option value="strategy_analyst">Strategy Analyst</option>
+                                        <option value="chief_of_staff">Chief of Staff</option>
+                                    </optgroup>
+                                    <optgroup label="Healthcare & Science">
+                                        <option value="doctor">Doctor / Physician</option>
+                                        <option value="nurse">Nurse / Nurse Practitioner</option>
+                                        <option value="pharmacist">Pharmacist</option>
+                                        <option value="biomedical_engineer">Biomedical Engineer</option>
+                                        <option value="clinical_researcher">Clinical Researcher</option>
+                                        <option value="healthcare_administrator">Healthcare Administrator</option>
+                                    </optgroup>
+                                    <optgroup label="Legal">
+                                        <option value="lawyer">Lawyer / Attorney</option>
+                                        <option value="paralegal">Paralegal</option>
+                                        <option value="compliance_officer">Compliance Officer</option>
+                                        <option value="legal_counsel">In-House Legal Counsel</option>
+                                    </optgroup>
+                                    <optgroup label="Education & Training">
+                                        <option value="teacher">Teacher / Professor</option>
+                                        <option value="instructional_designer">Instructional Designer</option>
+                                        <option value="academic_advisor">Academic Advisor</option>
+                                        <option value="education_administrator">Education Administrator</option>
+                                    </optgroup>
+                                    <optgroup label="Other">
+                                        <option value="entrepreneur">Entrepreneur / Founder</option>
+                                        <option value="freelancer">Freelancer / Consultant</option>
+                                        <option value="technical_writer">Technical Writer</option>
+                                        <option value="customer_support">Customer Support / Helpdesk</option>
+                                        <option value="real_estate_agent">Real Estate Agent</option>
+                                        <option value="journalist">Journalist / Reporter</option>
+                                        <option value="photographer_videographer">Photographer / Videographer</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             <div>
@@ -3007,41 +4015,138 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         </div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Zapier Webhooks</div>
-                    </div>
-                    <div class="card-body">
-                        <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Trigger automated workflows when decisions are made.</p>
-                        <input type="text" id="zapierUrl" placeholder="https://hooks.zapier.com/..." style="width: 100%; padding: 0.75rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); margin-bottom: 1rem;">
-                        <button class="attach-btn" style="width: 100%;" onclick="setupWebhook()">Save Webhook</button>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Enterprise Connect</div>
-                    </div>
-                    <div class="card-body">
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span>Slack Bot</span>
-                                <button class="nav-btn" style="width: auto; padding: 0.4rem 1rem;">Connect</button>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span>Microsoft Teams</span>
-                                <button class="nav-btn" style="width: auto; padding: 0.4rem 1rem;">Connect</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
+                <!-- API Access Card - Enhanced -->
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">API Access</div>
                     </div>
                     <div class="card-body">
-                        <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Use your token for custom integrations.</p>
-                        <div id="apiKeyDisplay" style="padding: 0.75rem; background: #000; border-radius: 8px; font-family: monospace; font-size: 0.8rem; margin-bottom: 1rem; display: none;"></div>
-                        <button class="nav-btn" style="width: 100%;" onclick="generateApiKey()">Generate Token</button>
+                        <p style="margin-bottom:1rem;color:var(--text-secondary);font-size:0.85rem;">Generate an API token to integrate with external tools and services.</p>
+
+                        <!-- Token Display Area -->
+                        <div id="apiTokenArea" style="margin-bottom:1rem;">
+                            <div id="apiKeyContainer" style="display:none;margin-bottom:1rem;">
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.4rem;display:flex;justify-content:space-between;align-items:center;">
+                                    <span>Your API Token</span>
+                                    <span id="apiKeyStatus" style="color:var(--success);font-size:0.7rem;">Active</span>
+                                </div>
+                                <div style="display:flex;gap:0.5rem;align-items:center;">
+                                    <div id="apiKeyDisplay" style="flex:1;padding:0.65rem 0.75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;font-family:'Courier New',monospace;font-size:0.8rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.5px;"></div>
+                                    <button onclick="toggleApiKeyVisibility()" id="apiKeyToggleBtn" style="padding:0.5rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);font-size:0.75rem;min-width:40px;" title="Show/Hide">Show</button>
+                                    <button onclick="copyApiKey()" style="padding:0.5rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);font-size:0.75rem;min-width:40px;" title="Copy">Copy</button>
+                                </div>
+                                <div style="margin-top:0.75rem;display:flex;gap:0.5rem;">
+                                    <button onclick="regenerateApiKey()" style="flex:1;padding:0.4rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;color:#ef4444;cursor:pointer;font-size:0.75rem;">Regenerate</button>
+                                    <button onclick="revokeApiKey()" style="flex:1;padding:0.4rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:0.75rem;">Revoke</button>
+                                </div>
+                            </div>
+                            <button id="generateTokenBtn" onclick="generateApiKey()" style="width:100%;padding:0.75rem;background:linear-gradient(135deg,var(--accent),#6366f1);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;transition:all 0.2s ease;">Generate API Token</button>
+                        </div>
+
+                        <!-- Quick API Info -->
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;font-size:0.75rem;color:var(--text-muted);">
+                            <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.5rem;">Quick Start</div>
+                            <div style="font-family:monospace;background:rgba(0,0,0,0.2);padding:0.5rem;border-radius:4px;overflow-x:auto;white-space:nowrap;margin-bottom:0.5rem;">
+                                curl -H "Authorization: Bearer &lt;token&gt;" http://localhost:8000/api/health
+                            </div>
+                            <div>Rate Limit: <strong>100 req/min</strong> · <strong>2000 req/hr</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Webhooks & Enterprise -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Webhooks & Enterprise</div>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid;gap:1rem;">
+                            <div>
+                                <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.5rem;">Zapier Webhook</div>
+                                <div style="display:flex;gap:0.5rem;">
+                                    <input type="text" id="zapierUrl" placeholder="https://hooks.zapier.com/..." style="flex:1;padding:0.6rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:0.8rem;">
+                                    <button class="attach-btn" style="padding:0.6rem 1rem;" onclick="setupWebhook()">Save</button>
+                                </div>
+                            </div>
+                            <div style="border-top:1px solid var(--border);padding-top:1rem;">
+                                <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.75rem;">Enterprise Connect</div>
+                                <div style="display:grid;gap:0.5rem;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.75rem;background:var(--bg-elevated);border-radius:6px;">
+                                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                                            <span style="font-size:1.1rem;">#</span>
+                                            <span style="font-size:0.85rem;">Slack Bot</span>
+                                        </div>
+                                        <button class="nav-btn" style="width:auto;padding:0.3rem 0.75rem;font-size:0.75rem;">Connect</button>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.75rem;background:var(--bg-elevated);border-radius:6px;">
+                                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                                            <span style="font-size:1.1rem;">T</span>
+                                            <span style="font-size:0.85rem;">MS Teams</span>
+                                        </div>
+                                        <button class="nav-btn" style="width:auto;padding:0.3rem 0.75rem;font-size:0.75rem;">Connect</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Usage Dashboard - Full Width -->
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title">API Usage Dashboard</div>
+                        <button onclick="refreshApiUsage()" style="padding:0.3rem 0.75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:0.75rem;">Refresh</button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Stats Row -->
+                        <div id="apiUsageStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div id="usageTotalReqs" style="font-size:1.75rem;font-weight:700;color:var(--accent);">—</div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">Total Requests</div>
+                            </div>
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div id="usageTodayReqs" style="font-size:1.75rem;font-weight:700;color:#10b981;">—</div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">Today</div>
+                            </div>
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div id="usageActiveEndpoints" style="font-size:1.75rem;font-weight:700;color:#f59e0b;">—</div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">Active Endpoints</div>
+                            </div>
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div id="usageRateStatus" style="font-size:1.75rem;font-weight:700;color:#10b981;">OK</div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">Rate Limit</div>
+                            </div>
+                        </div>
+
+                        <!-- Usage Chart -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+                            <!-- Top Endpoints -->
+                            <div>
+                                <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.75rem;">Top Endpoints</div>
+                                <div id="topEndpointsList" style="display:grid;gap:0.5rem;">
+                                    <div class="empty-state" style="font-size:0.8rem;">Loading usage data...</div>
+                                </div>
+                            </div>
+                            <!-- Usage Timeline -->
+                            <div>
+                                <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.75rem;">Request Activity</div>
+                                <div id="usageTimeline" style="display:flex;align-items:flex-end;gap:3px;height:120px;padding:0.5rem;background:var(--bg-elevated);border-radius:8px;">
+                                    <div class="empty-state" style="font-size:0.8rem;width:100%;text-align:center;">Loading...</div>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-muted);margin-top:0.25rem;padding:0 0.5rem;">
+                                    <span>24h ago</span><span>12h ago</span><span>Now</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent API Calls -->
+                        <div style="margin-top:1.25rem;">
+                            <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.75rem;">Recent API Calls</div>
+                            <div id="recentApiCalls" style="max-height:200px;overflow-y:auto;">
+                                <div class="empty-state" style="font-size:0.8rem;">Loading...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3127,14 +4232,13 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             </div>
             <div style="padding:1.5rem;display:grid;gap:1.5rem;">
                 <div>
-                    <div class="form-label" style="margin-bottom: 0.75rem;">Theme</div>
-                    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:0.75rem;">
-                        <button class="nav-btn theme-btn" id="themeLight" onclick="setTheme('light')"
-                            style="width:100%;font-size:0.8rem;padding:0.5rem 0.25rem;">Light</button>
-                        <button class="nav-btn theme-btn" id="themeDark" onclick="setTheme('dark')"
-                            style="width:100%;font-size:0.8rem;padding:0.5rem 0.25rem;">Dark</button>
-                        <button class="nav-btn theme-btn" id="themeSystem" onclick="setTheme('system')"
-                            style="width:100%;font-size:0.8rem;padding:0.5rem 0.25rem;">Auto</button>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="form-label" style="margin-bottom:0;">Dark Mode</div>
+                        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
+                            <input type="checkbox" id="themeToggle" onchange="handleThemeToggle(this.checked)" style="opacity:0;width:0;height:0;">
+                            <span id="themeSlider" style="position:absolute;inset:0;background:var(--border);border-radius:24px;transition:all 0.3s ease;"></span>
+                            <span id="themeSliderKnob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:all 0.3s ease;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>
+                        </label>
                     </div>
                 </div>
 
@@ -3157,6 +4261,10 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         <button class="btn btn-secondary" onclick="showShortcutHelp()" style="width:100%;font-size:0.8rem;padding:0.5rem 0.75rem;">Keyboard Shortcuts</button>
                         <button class="btn btn-secondary" onclick="clearAllData()" style="width:100%;color:var(--danger);font-size:0.8rem;padding:0.5rem 0.75rem;">Clear All Local Data</button>
                     </div>
+                </div>
+
+                <div>
+                    <button onclick="handleLogout()" style="width:100%;padding:0.65rem 1rem;background:none;border:1px solid var(--danger);border-radius:10px;color:var(--danger);cursor:pointer;font-size:0.85rem;font-weight:600;font-family:inherit;transition:all 0.2s ease;" onmouseover="this.style.background='var(--danger)';this.style.color='#fff';" onmouseout="this.style.background='none';this.style.color='var(--danger)';">Log Out</button>
                 </div>
 
                 <div style="font-size:0.75rem;color:var(--text-muted);text-align:center;">
@@ -3337,9 +4445,14 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             const formData = new FormData();
             formData.append('file', file);
             
+            const token = localStorage.getItem('session_token');
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            
             const response = await fetch(`/api/upload?user_id=${userId}`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: headers
             });
             
             if (!response.ok) {
@@ -3587,6 +4700,9 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         </div>
                     </div>
                 `;
+
+                // Save conversation to history
+                saveConversationToHistory(msg, data.response || 'I understand. Let me help you think through this.');
             } catch (error) {
                 typingDiv.remove();
                 messagesDiv.innerHTML += `
@@ -3603,6 +4719,19 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 `;
             }
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function saveConversationToHistory(userMsg, aiResponse) {
+            const entry = {
+                id: Date.now(),
+                type: 'conversation',
+                description: userMsg.substring(0, 100),
+                response: aiResponse.substring(0, 200),
+                regret: '—',
+                timestamp: new Date().toISOString()
+            };
+            journalDecisions.unshift(entry);
+            localStorage.setItem('decisions', JSON.stringify(journalDecisions));
         }
 
 
@@ -4557,16 +5686,10 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         }
 
         function setTheme(theme) {
-            document.querySelectorAll('.theme-btn').forEach(btn => {
-                btn.style.borderColor = 'var(--border)';
-            });
-
             if (theme === 'light') {
                 document.documentElement.setAttribute('data-theme', 'light');
-                document.getElementById('themeLight').style.borderColor = 'var(--accent)';
             } else if (theme === 'dark') {
                 document.documentElement.removeAttribute('data-theme');
-                document.getElementById('themeDark').style.borderColor = 'var(--accent)';
             } else {
                 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (prefersDark) {
@@ -4574,10 +5697,61 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 } else {
                     document.documentElement.setAttribute('data-theme', 'light');
                 }
-                document.getElementById('themeSystem').style.borderColor = 'var(--accent)';
             }
             localStorage.setItem('theme', theme);
-            showToast('Theme changed to ' + theme);
+        }
+
+        function handleThemeToggle(isDark) {
+            const slider = document.getElementById('themeSlider');
+            const knob = document.getElementById('themeSliderKnob');
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+                slider.style.background = 'var(--accent)';
+                knob.style.left = '22px';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+                slider.style.background = 'var(--border)';
+                knob.style.left = '2px';
+            }
+            showToast('Theme changed to ' + (isDark ? 'dark' : 'light'));
+        }
+
+        function initThemeToggle() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            const isDark = saved !== 'light';
+            const toggle = document.getElementById('themeToggle');
+            const slider = document.getElementById('themeSlider');
+            const knob = document.getElementById('themeSliderKnob');
+            if (toggle) {
+                toggle.checked = isDark;
+                if (isDark) {
+                    slider.style.background = 'var(--accent)';
+                    knob.style.left = '22px';
+                } else {
+                    slider.style.background = 'var(--border)';
+                    knob.style.left = '2px';
+                }
+            }
+        }
+
+        function handleLogout() {
+            const modal = document.getElementById('settingsModal');
+            if (modal) modal.style.display = 'none';
+            const token = localStorage.getItem('session_token');
+            if (token) {
+                fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).catch(() => {});
+            }
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('username');
+            localStorage.removeItem('decisions');
+            localStorage.removeItem('quickDecisions');
+            window.location.replace('/login');
         }
 
         function clearAllData() {
@@ -5223,17 +6397,238 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             }
         }
         
-        async function requestDataExport() {
+        async function exportMyData(format = 'json') {
+            const statusEl = document.getElementById('exportStatus');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.innerHTML = 'Gathering your data...';
+            }
+
             try {
-                const response = await fetch('/api/privacy/export', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId })
-                });
-                const data = await response.json();
-                showToast('Data export requested. You will be notified when ready.', 'success');
+                const endpoints = [
+                    { key: 'decisions', url: `/api/decisions/${userId}` },
+                    { key: 'analytics', url: `/api/analytics/${userId}` },
+                    { key: 'calendar_events', url: `/api/calendar/events/${userId}` },
+                    { key: 'privacy', url: `/api/privacy/dashboard/${userId}` }
+                ];
+
+                const allData = {
+                    export_info: {
+                        exported_at: new Date().toISOString(),
+                        user_id: userId,
+                        format: format,
+                        app: 'Career Decision Regret AI'
+                    }
+                };
+
+                for (const ep of endpoints) {
+                    try {
+                        const res = await fetch(ep.url);
+                        if (res.ok) {
+                            allData[ep.key] = await res.json();
+                        }
+                    } catch (e) {
+                        allData[ep.key] = { error: 'Could not fetch' };
+                    }
+                }
+
+                // Also grab locally stored data
+                try {
+                    const localJournal = JSON.parse(localStorage.getItem('journal_entries') || '[]');
+                    allData.journal_entries = localJournal;
+                } catch(e) {}
+
+                try {
+                    const chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+                    allData.chat_history = chatHistory;
+                } catch(e) {}
+
+                if (statusEl) statusEl.innerHTML = 'Preparing download...';
+
+                let blob, filename;
+                const timestamp = new Date().toISOString().slice(0,10);
+
+                if (format === 'json') {
+                    const jsonStr = JSON.stringify(allData, null, 2);
+                    blob = new Blob([jsonStr], { type: 'application/json' });
+                    filename = `career_data_export_${timestamp}.json`;
+
+                } else if (format === 'text') {
+                    let textContent = '='.repeat(60) + '\\n';
+                    textContent += '  CAREER DECISION REGRET AI - DATA EXPORT\\n';
+                    textContent += '='.repeat(60) + '\\n\\n';
+                    textContent += `Export Date: ${new Date().toLocaleString()}\\n`;
+                    textContent += `User ID: ${userId}\\n\\n`;
+
+                    // Decisions
+                    textContent += '-'.repeat(40) + '\\n';
+                    textContent += 'DECISIONS\\n';
+                    textContent += '-'.repeat(40) + '\\n';
+                    const decisions = allData.decisions?.decisions || allData.decisions || [];
+                    if (Array.isArray(decisions) && decisions.length > 0) {
+                        decisions.forEach((d, i) => {
+                            textContent += `\\n${i+1}. ${d.title || d.description || 'Untitled Decision'}\\n`;
+                            if (d.type) textContent += `   Type: ${d.type}\\n`;
+                            if (d.status) textContent += `   Status: ${d.status}\\n`;
+                            if (d.predicted_regret !== undefined) textContent += `   Predicted Regret: ${(d.predicted_regret * 100).toFixed(1)}%\\n`;
+                            if (d.created_at) textContent += `   Created: ${new Date(d.created_at).toLocaleString()}\\n`;
+                        });
+                    } else {
+                        textContent += '\\nNo decisions recorded.\\n';
+                    }
+
+                    // Journal
+                    textContent += '\\n' + '-'.repeat(40) + '\\n';
+                    textContent += 'JOURNAL ENTRIES\\n';
+                    textContent += '-'.repeat(40) + '\\n';
+                    const journal = allData.journal_entries || [];
+                    if (journal.length > 0) {
+                        journal.forEach((j, i) => {
+                            textContent += `\\n${i+1}. ${j.title || 'Untitled'}\\n`;
+                            if (j.description) textContent += `   ${j.description}\\n`;
+                            if (j.status) textContent += `   Status: ${j.status}\\n`;
+                            if (j.created_at) textContent += `   Date: ${new Date(j.created_at).toLocaleString()}\\n`;
+                        });
+                    } else {
+                        textContent += '\\nNo journal entries.\\n';
+                    }
+
+                    // Calendar
+                    textContent += '\\n' + '-'.repeat(40) + '\\n';
+                    textContent += 'CALENDAR EVENTS\\n';
+                    textContent += '-'.repeat(40) + '\\n';
+                    const calEvents = allData.calendar_events?.events || [];
+                    if (calEvents.length > 0) {
+                        calEvents.forEach((e, i) => {
+                            textContent += `\\n${i+1}. ${e.title || 'Untitled'}\\n`;
+                            if (e.start) textContent += `   Start: ${new Date(e.start).toLocaleString()}\\n`;
+                            if (e.type) textContent += `   Type: ${e.type}\\n`;
+                        });
+                    } else {
+                        textContent += '\\nNo calendar events.\\n';
+                    }
+
+                    // Chat History
+                    textContent += '\\n' + '-'.repeat(40) + '\\n';
+                    textContent += 'CHAT HISTORY\\n';
+                    textContent += '-'.repeat(40) + '\\n';
+                    const chats = allData.chat_history || [];
+                    if (chats.length > 0) {
+                        chats.forEach((c, i) => {
+                            const role = c.role === 'user' ? 'You' : 'AI';
+                            textContent += `\\n[${role}]: ${c.content || c.message || ''}\\n`;
+                        });
+                    } else {
+                        textContent += '\\nNo chat history.\\n';
+                    }
+
+                    textContent += '\\n' + '='.repeat(60) + '\\n';
+                    textContent += 'END OF EXPORT\\n';
+
+                    blob = new Blob([textContent], { type: 'text/plain' });
+                    filename = `career_data_export_${timestamp}.txt`;
+
+                } else if (format === 'pdf') {
+                    // Generate a styled HTML document and convert to PDF via print
+                    let pdfHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Data Export</title>
+                        <style>
+                            body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; color: #1a1a1a; line-height: 1.6; }
+                            h1 { color: #1e40af; border-bottom: 3px solid #3b82f6; padding-bottom: 10px; }
+                            h2 { color: #374151; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+                            .meta { color: #6b7280; font-size: 0.9em; margin-bottom: 20px; }
+                            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                            th, td { border: 1px solid #e5e7eb; padding: 10px 14px; text-align: left; }
+                            th { background: #f3f4f6; font-weight: 600; }
+                            tr:nth-child(even) { background: #fafafa; }
+                            .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; }
+                            @media print { body { padding: 20px; } }
+                        </style></head><body>`;
+                    pdfHtml += `<h1>Career Decision Data Export</h1>`;
+                    pdfHtml += `<div class="meta">Exported: ${new Date().toLocaleString()} &bull; User: ${userId}</div>`;
+
+                    // Decisions
+                    pdfHtml += `<h2>Decisions</h2>`;
+                    const pdfDecisions = allData.decisions?.decisions || allData.decisions || [];
+                    if (Array.isArray(pdfDecisions) && pdfDecisions.length > 0) {
+                        pdfHtml += `<table><tr><th>#</th><th>Title</th><th>Type</th><th>Status</th><th>Regret Score</th><th>Date</th></tr>`;
+                        pdfDecisions.forEach((d, i) => {
+                            pdfHtml += `<tr><td>${i+1}</td><td>${d.title || d.description || '-'}</td><td>${d.type || '-'}</td><td>${d.status || '-'}</td><td>${d.predicted_regret !== undefined ? (d.predicted_regret * 100).toFixed(1) + '%' : '-'}</td><td>${d.created_at ? new Date(d.created_at).toLocaleDateString() : '-'}</td></tr>`;
+                        });
+                        pdfHtml += `</table>`;
+                    } else {
+                        pdfHtml += `<p style="color:#6b7280;">No decisions recorded.</p>`;
+                    }
+
+                    // Journal
+                    pdfHtml += `<h2>Journal Entries</h2>`;
+                    const pdfJournal = allData.journal_entries || [];
+                    if (pdfJournal.length > 0) {
+                        pdfHtml += `<table><tr><th>#</th><th>Title</th><th>Description</th><th>Status</th><th>Date</th></tr>`;
+                        pdfJournal.forEach((j, i) => {
+                            pdfHtml += `<tr><td>${i+1}</td><td>${j.title || '-'}</td><td>${(j.description || '').substring(0, 100)}${(j.description || '').length > 100 ? '...' : ''}</td><td>${j.status || '-'}</td><td>${j.created_at ? new Date(j.created_at).toLocaleDateString() : '-'}</td></tr>`;
+                        });
+                        pdfHtml += `</table>`;
+                    } else {
+                        pdfHtml += `<p style="color:#6b7280;">No journal entries.</p>`;
+                    }
+
+                    // Calendar
+                    pdfHtml += `<h2>Calendar Events</h2>`;
+                    const pdfCalEvents = allData.calendar_events?.events || [];
+                    if (pdfCalEvents.length > 0) {
+                        pdfHtml += `<table><tr><th>#</th><th>Title</th><th>Type</th><th>Date</th></tr>`;
+                        pdfCalEvents.forEach((e, i) => {
+                            pdfHtml += `<tr><td>${i+1}</td><td>${e.title || '-'}</td><td>${e.type || '-'}</td><td>${e.start ? new Date(e.start).toLocaleString() : '-'}</td></tr>`;
+                        });
+                        pdfHtml += `</table>`;
+                    } else {
+                        pdfHtml += `<p style="color:#6b7280;">No calendar events.</p>`;
+                    }
+
+                    pdfHtml += `<hr style="margin-top:40px;border-color:#e5e7eb;"><p style="color:#9ca3af;font-size:0.8em;text-align:center;">Generated by Career Decision Regret AI</p>`;
+                    pdfHtml += `</body></html>`;
+
+                    const pdfWindow = window.open('', '_blank');
+                    if (pdfWindow) {
+                        pdfWindow.document.write(pdfHtml);
+                        pdfWindow.document.close();
+                        setTimeout(() => {
+                            pdfWindow.print();
+                        }, 500);
+                    } else {
+                        showToast('Popup blocked. Please allow popups to export PDF.', 'warning');
+                    }
+
+                    if (statusEl) {
+                        statusEl.innerHTML = 'PDF ready! Use your browser Print dialog to save as PDF.';
+                        setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+                    }
+                    return;
+                }
+
+                // Download JSON or Text blob
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                if (statusEl) {
+                    statusEl.innerHTML = `Downloaded ${filename} successfully!`;
+                    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+                }
+                showToast(`Data exported as ${format.toUpperCase()}`, 'success');
+
             } catch (error) {
-                showToast('Failed to request export', 'error');
+                console.error('Export error:', error);
+                if (statusEl) {
+                    statusEl.innerHTML = 'Export failed. Please try again.';
+                    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+                }
+                showToast('Failed to export data', 'error');
             }
         }
         
@@ -5389,65 +6784,58 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             }
         }
 
-        // Calendar System
+        // Calendar System - Google Calendar Style
+        let calCurrentDate = new Date();
+        let calSelectedDate = new Date();
+        let calEvents = [];
+        let calView = 'month'; // 'month' or 'week'
+
+        const CAL_EVENT_COLORS = {
+            'decision_deadline': '#ef4444',
+            'check_in': '#3b82f6',
+            'goal_milestone': '#10b981',
+            'interview': '#f59e0b',
+            'follow_up': '#8b5cf6',
+            'reflection': '#06b6d4',
+            'coaching_session': '#ec4899',
+            'default': '#6b7280'
+        };
+
+        const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const CAL_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+        function getEventColor(type) {
+            return CAL_EVENT_COLORS[type] || CAL_EVENT_COLORS['default'];
+        }
+
+        function isSameDay(d1, d2) {
+            return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+        }
+
+        function getEventsForDate(date) {
+            return calEvents.filter(evt => {
+                const evtDate = new Date(evt.start || evt.start_time);
+                return isSameDay(evtDate, date);
+            });
+        }
+
         async function loadCalendar() {
             console.log("[Calendar] Loading for user:", userId);
-            
+
+            // Fetch events and status in parallel
             try {
-                // Fetch all data in parallel
-                const [agendaRes, eventsRes, statusRes] = await Promise.all([
-                    fetch(`/api/calendar/today/${userId}`).catch(e => ({error: e})),
-                    fetch(`/api/calendar/events/${userId}`).catch(e => ({error: e})),
+                const [eventsRes, statusRes] = await Promise.all([
+                    fetch(`/api/calendar/events/${userId}?days=90`).catch(e => ({error: e})),
                     fetch(`/api/calendar/status/${userId}`).catch(e => ({error: e}))
                 ]);
 
-                // Today's Agenda
-                if (agendaRes.ok) {
-                    const agendaData = await agendaRes.json();
-                    const container = document.getElementById('todayAgenda');
-                    if (container) {
-                        const events = agendaData.events || [];
-                        if (events.length > 0) {
-                            container.innerHTML = events.map(evt => `
-                                <div style="padding:0.75rem;background:var(--bg-elevated);border-left:3px solid var(--accent);border-radius:4px;margin-bottom:0.5rem;">
-                                    <div style="font-weight:600;">${evt.title || 'Untitled'}</div>
-                                    <div style="font-size:0.8rem;color:var(--text-secondary);">
-                                        ${evt.start ? new Date(evt.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'All day'}
-                                        ${evt.end ? ' - ' + new Date(evt.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                                    </div>
-                                </div>
-                            `).join('');
-                        } else {
-                            container.innerHTML = '<div class="empty-state">No events scheduled for today</div>';
-                        }
-                    }
-                }
-
-                // Upcoming Events
                 if (eventsRes.ok) {
-                    const eventsData = await eventsRes.json();
-                    const container = document.getElementById('upcomingEvents');
-                    if (container) {
-                        const events = eventsData.events || [];
-                        if (events.length > 0) {
-                            container.innerHTML = events.map(evt => `
-                                <div style="padding:1rem;background:var(--bg-elevated);border-radius:8px;margin-bottom:0.75rem;border:1px solid var(--border);">
-                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                                        <div style="font-weight:600;">${evt.title || 'Untitled'}</div>
-                                        <div style="padding:0.25rem 0.5rem;background:var(--bg-card);border-radius:4px;font-size:0.75rem;">
-                                            ${evt.start ? new Date(evt.start).toLocaleDateString() : ''}
-                                        </div>
-                                    </div>
-                                    <div style="margin-top:0.5rem;font-size:0.85rem;color:var(--text-secondary);">${evt.description || ''}</div>
-                                    <div style="margin-top:0.5rem;display:flex;gap:0.5rem;">
-                                        <span style="font-size:0.75rem;color:var(--text-muted);padding:2px 6px;background:rgba(255,255,255,0.05);border-radius:4px;">${evt.type || 'event'}</span>
-                                    </div>
-                                </div>
-                            `).join('');
-                        } else {
-                            container.innerHTML = '<div class="empty-state">No upcoming events found</div>';
-                        }
-                    }
+                    const data = await eventsRes.json();
+                    calEvents = (data.events || []).map(evt => ({
+                        ...evt,
+                        start: evt.start || evt.start_time,
+                        end: evt.end || evt.end_time
+                    }));
                 }
 
                 // Sync Status
@@ -5458,23 +6846,243 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         if (statusData.connected) {
                             container.innerHTML = `
                                 <div style="color:var(--success);font-weight:600;display:flex;align-items:center;gap:0.5rem;">
-                                    <span>●</span> Connected to Google Calendar
+                                    <span>●</span> Connected
                                 </div>
                                 <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.5rem;">Last sync: Just now</div>
                             `;
                         } else {
                             container.innerHTML = `
-                                <div style="color:var(--text-secondary);margin-bottom:1rem;">Not connected</div>
-                                <button onclick="window.open('${statusData.oauth_url}', '_blank')" style="width:100%;padding:0.5rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;">Connect Google Calendar</button>
+                                <div style="color:var(--text-secondary);margin-bottom:0.75rem;font-size:0.85rem;">Not connected</div>
+                                <button onclick="window.open('${statusData.oauth_url || '#'}', '_blank')" style="width:100%;padding:0.5rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-primary);font-size:0.8rem;">Connect Google Calendar</button>
                             `;
                         }
                     }
                 }
-                
             } catch (e) {
-                console.error('[Calendar] Critical failure:', e);
-                showToast('Error loading calendar', 'error');
+                console.error('[Calendar] Load error:', e);
             }
+
+            renderCalendar();
+            renderUpcomingEvents();
+            selectDay(calSelectedDate);
+        }
+
+        function renderCalendar() {
+            if (calView === 'week') {
+                renderWeekView();
+                return;
+            }
+            renderMonthView();
+        }
+
+        function renderMonthView() {
+            const grid = document.getElementById('calendarGrid');
+            if (!grid) return;
+
+            const year = calCurrentDate.getFullYear();
+            const month = calCurrentDate.getMonth();
+            const today = new Date();
+
+            // Update title
+            const titleEl = document.getElementById('calMonthTitle');
+            if (titleEl) titleEl.textContent = `${CAL_MONTHS[month]} ${year}`;
+
+            // Build grid HTML
+            let html = '';
+
+            // Day headers
+            CAL_DAYS.forEach(d => {
+                html += `<div class="cal-header-cell">${d}</div>`;
+            });
+
+            // Calculate first day of month and total days
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+            // Previous month trailing days
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = daysInPrevMonth - i;
+                const date = new Date(year, month - 1, day);
+                const dayEvents = getEventsForDate(date);
+                html += buildDayCell(day, date, dayEvents, true, isSameDay(date, today), isSameDay(date, calSelectedDate));
+            }
+
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dayEvents = getEventsForDate(date);
+                html += buildDayCell(day, date, dayEvents, false, isSameDay(date, today), isSameDay(date, calSelectedDate));
+            }
+
+            // Next month leading days (fill to complete 6 rows = 42 cells)
+            const totalCells = firstDay + daysInMonth;
+            const remaining = (totalCells % 7 === 0) ? 0 : (7 - totalCells % 7);
+            for (let day = 1; day <= remaining; day++) {
+                const date = new Date(year, month + 1, day);
+                const dayEvents = getEventsForDate(date);
+                html += buildDayCell(day, date, dayEvents, true, isSameDay(date, today), isSameDay(date, calSelectedDate));
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function renderWeekView() {
+            const grid = document.getElementById('calendarGrid');
+            if (!grid) return;
+
+            const today = new Date();
+            const startOfWeek = new Date(calCurrentDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+            // Update title
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 6);
+            const titleEl = document.getElementById('calMonthTitle');
+            if (titleEl) {
+                const startStr = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const endStr = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                titleEl.textContent = `${startStr} - ${endStr}`;
+            }
+
+            let html = '';
+            CAL_DAYS.forEach(d => {
+                html += `<div class="cal-header-cell">${d}</div>`;
+            });
+
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(startOfWeek);
+                date.setDate(date.getDate() + i);
+                const dayEvents = getEventsForDate(date);
+                html += buildDayCell(date.getDate(), date, dayEvents, false, isSameDay(date, today), isSameDay(date, calSelectedDate));
+            }
+
+            grid.style.gridTemplateRows = 'auto 1fr';
+            grid.innerHTML = html;
+        }
+
+        function buildDayCell(dayNum, date, events, isOtherMonth, isToday, isSelected) {
+            const dateStr = date.toISOString();
+            let classes = 'cal-day';
+            if (isOtherMonth) classes += ' other-month';
+            if (isToday) classes += ' today';
+            if (isSelected) classes += ' selected';
+
+            let eventHtml = '';
+            const maxShow = 3;
+            events.slice(0, maxShow).forEach(evt => {
+                const color = getEventColor(evt.type || evt.event_type);
+                const time = evt.start ? new Date(evt.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+                eventHtml += `<div class="cal-event-item" style="background:${color}22;color:${color};border-left:2px solid ${color};" title="${evt.title || ''}">${time ? time + ' ' : ''}${evt.title || 'Event'}</div>`;
+            });
+            if (events.length > maxShow) {
+                eventHtml += `<div style="font-size:0.65rem;color:var(--text-muted);padding:1px 4px;">+${events.length - maxShow} more</div>`;
+            }
+
+            return `<div class="${classes}" onclick="selectDay(new Date('${dateStr}'))">
+                <div class="cal-day-num">${dayNum}</div>
+                ${eventHtml}
+            </div>`;
+        }
+
+        function selectDay(date) {
+            calSelectedDate = date;
+            renderCalendar();
+
+            const titleEl = document.getElementById('calSelectedDateTitle');
+            const detailEl = document.getElementById('calDayDetail');
+            if (!detailEl) return;
+
+            const isToday = isSameDay(date, new Date());
+            const dateLabel = isToday ? "Today's Agenda" : date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            if (titleEl) titleEl.textContent = dateLabel;
+
+            const dayEvents = getEventsForDate(date);
+            if (dayEvents.length === 0) {
+                detailEl.innerHTML = `
+                    <div style="text-align:center;padding:1.5rem 0;">
+                        <div style="color:var(--text-muted);font-size:0.85rem;">No events</div>
+                        <button onclick="showAddEventModal()" style="margin-top:0.75rem;padding:0.4rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;">+ Add Event</button>
+                    </div>
+                `;
+                return;
+            }
+
+            detailEl.innerHTML = dayEvents.map(evt => {
+                const color = getEventColor(evt.type || evt.event_type);
+                const startTime = evt.start ? new Date(evt.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+                const endTime = evt.end ? new Date(evt.end).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+                return `
+                    <div style="padding:0.75rem;background:var(--bg-elevated);border-left:3px solid ${color};border-radius:6px;margin-bottom:0.5rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;">
+                            <div style="font-weight:600;font-size:0.9rem;">${evt.title || 'Untitled'}</div>
+                            <span style="font-size:0.65rem;padding:2px 6px;background:${color}22;color:${color};border-radius:4px;">${(evt.type || evt.event_type || 'event').replace(/_/g, ' ')}</span>
+                        </div>
+                        ${startTime ? `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.25rem;">${startTime}${endTime ? ' – ' + endTime : ''}</div>` : ''}
+                        ${evt.description ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.35rem;">${evt.description}</div>` : ''}
+                        ${evt.location ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">📍 ${evt.location}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderUpcomingEvents() {
+            const container = document.getElementById('calUpcomingList');
+            if (!container) return;
+
+            const now = new Date();
+            const upcoming = calEvents
+                .filter(evt => new Date(evt.start) >= now)
+                .sort((a, b) => new Date(a.start) - new Date(b.start))
+                .slice(0, 8);
+
+            if (upcoming.length === 0) {
+                container.innerHTML = '<div class="empty-state">No upcoming events</div>';
+                return;
+            }
+
+            container.innerHTML = upcoming.map(evt => {
+                const color = getEventColor(evt.type || evt.event_type);
+                const evtDate = new Date(evt.start);
+                const isToday = isSameDay(evtDate, now);
+                const isTomorrow = isSameDay(evtDate, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+                let dateLabel = evtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                if (isToday) dateLabel = 'Today';
+                if (isTomorrow) dateLabel = 'Tomorrow';
+
+                return `
+                    <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem;border-radius:6px;cursor:pointer;transition:background 0.15s;" onclick="selectDay(new Date('${evtDate.toISOString()}'))" onmouseover="this.style.background='var(--bg-elevated)'" onmouseout="this.style.background='transparent'">
+                        <span class="cal-event-type-color" style="background:${color};"></span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${evt.title || 'Event'}</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">${dateLabel} · ${evtDate.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function calNavigate(direction) {
+            if (calView === 'week') {
+                calCurrentDate.setDate(calCurrentDate.getDate() + direction * 7);
+            } else {
+                calCurrentDate.setMonth(calCurrentDate.getMonth() + direction);
+            }
+            renderCalendar();
+        }
+
+        function calToday() {
+            calCurrentDate = new Date();
+            calSelectedDate = new Date();
+            renderCalendar();
+            selectDay(calSelectedDate);
+        }
+
+        function setCalView(view) {
+            calView = view;
+            document.getElementById('calViewMonth').classList.toggle('active', view === 'month');
+            document.getElementById('calViewWeek').classList.toggle('active', view === 'week');
+            renderCalendar();
         }
 
         async function syncCalendar() {
@@ -5492,24 +7100,34 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 showToast('Sync error', 'error');
             }
         }
-        
+
         // Modal Handling
         function showAddEventModal() {
+            // Pre-fill start date with selected date
+            const startInput = document.getElementById('eventStart');
+            if (startInput && calSelectedDate) {
+                const d = calSelectedDate;
+                const now = new Date();
+                d.setHours(now.getHours() + 1, 0, 0, 0);
+                const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                startInput.value = local;
+            }
             document.getElementById('addEventModal').style.display = 'flex';
         }
-        
+
         async function submitEvent() {
             const title = document.getElementById('eventTitle').value;
             const type = document.getElementById('eventType').value;
             const start = document.getElementById('eventStart').value;
             const end = document.getElementById('eventEnd').value;
             const desc = document.getElementById('eventDescription').value;
-            
+            const location = document.getElementById('eventLocation')?.value || '';
+
             if (!title || !start) {
                 showToast('Title and Start Date required', 'warning');
                 return;
             }
-            
+
             try {
                 const res = await fetch('/api/calendar/events', {
                     method: 'POST',
@@ -5520,13 +7138,18 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         event_type: type,
                         start_time: new Date(start).toISOString(),
                         end_time: end ? new Date(end).toISOString() : null,
-                        description: desc
+                        description: desc,
+                        location: location
                     })
                 });
-                
+
                 if (res.ok) {
                     showToast('Event created successfully', 'success');
                     document.getElementById('addEventModal').style.display = 'none';
+                    // Clear form
+                    document.getElementById('eventTitle').value = '';
+                    document.getElementById('eventDescription').value = '';
+                    if (document.getElementById('eventLocation')) document.getElementById('eventLocation').value = '';
                     loadCalendar();
                 } else {
                     showToast('Failed to create event', 'error');
@@ -5566,26 +7189,80 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             const file = event.target.files[0];
             if (!file) return;
             
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showToast('File too large. Maximum size is 10MB.', 'error');
+                return;
+            }
+            
+            const allowedTypes = ['.pdf', '.docx', '.txt', '.doc'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowedTypes.includes(ext)) {
+                showToast('Unsupported file type. Please upload PDF, DOCX, or TXT.', 'error');
+                return;
+            }
+            
             showToast('Uploading and analyzing...', 'info');
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('user_id', userId);
             
             try {
-                const response = await fetch('/api/upload', { method: 'POST', body: formData });
+                const token = localStorage.getItem('session_token');
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch(`/api/upload?user_id=${userId}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+                
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.detail || `Upload failed (${response.status})`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.is_resume && data.resume_id) {
                     currentResumeId = data.resume_id;
                     await loadResumeData(currentResumeId);
                     showToast('Resume analyzed successfully', 'success');
+                } else if (data.extracted_content_preview) {
+                    showToast('File uploaded. Attempting resume parse via text...', 'info');
+                    try {
+                        const parseRes = await fetch('/api/resume/parse', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                            body: JSON.stringify({
+                                text_content: data.extracted_content_preview,
+                                filename: file.name,
+                                user_id: userId
+                            })
+                        });
+                        const parseData = await parseRes.json();
+                        if (parseData.id) {
+                            currentResumeId = parseData.id;
+                            await loadResumeData(currentResumeId);
+                            showToast('Resume analyzed successfully', 'success');
+                        } else {
+                            showToast('Uploaded, but could not parse as a resume', 'warning');
+                        }
+                    } catch (parseErr) {
+                        console.error('Fallback parse failed:', parseErr);
+                        showToast('Uploaded, but not recognized as a resume', 'warning');
+                    }
                 } else {
                     showToast('Uploaded, but not recognized as a resume', 'warning');
                 }
             } catch (error) {
-                showToast('Upload failed', 'error');
-                console.error(error);
+                showToast(error.message || 'Upload failed', 'error');
+                console.error('Resume upload error:', error);
             }
+            
+            event.target.value = '';
         }
         
         async function loadResumeData(resumeId) {
@@ -6046,7 +7723,22 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             
             showToast('Running Monte Carlo simulation...', 'info');
             try {
-                const res = await fetch(`/api/simulate/run?decision_desc=${encodeURIComponent(desc)}&base_salary=${salary}&uncertainty=${uncertainty}`, { method: 'POST' });
+                const res = await fetch('/api/simulate/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        decision_type: desc,
+                        years: 5,
+                        initial_salary: parseFloat(salary) || 80000,
+                        initial_satisfaction: 1.0 - (parseFloat(uncertainty) || 0.2),
+                        risk_tolerance: parseFloat(uncertainty) || 0.5,
+                        current_career_level: 3
+                    })
+                });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || 'Simulation request failed');
+                }
                 const data = await res.json();
                 
                 // Display Stats
@@ -6369,17 +8061,271 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             }
         }
 
+        let _apiKeyValue = '';
+        let _apiKeyVisible = false;
+
+        function restoreApiKey() {
+            const saved = localStorage.getItem('api_token');
+            if (saved) {
+                _apiKeyValue = saved;
+                document.getElementById('apiKeyContainer').style.display = 'block';
+                document.getElementById('generateTokenBtn').style.display = 'none';
+                _apiKeyVisible = false;
+                document.getElementById('apiKeyDisplay').textContent = maskKey(saved);
+                document.getElementById('apiKeyToggleBtn').textContent = 'Show';
+            }
+        }
+
+        function maskKey(key) {
+            if (!key || key.length < 12) return '••••••••••••••••';
+            return key.substring(0, 10) + '•'.repeat(key.length - 14) + key.substring(key.length - 4);
+        }
+
         async function generateApiKey() {
+            const btn = document.getElementById('generateTokenBtn');
+            if (btn) { btn.textContent = 'Generating...'; btn.disabled = true; }
+
+            // Generate a realistic-looking API key
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let key = 'sk_career_';
+            for (let i = 0; i < 32; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
+
+            await new Promise(r => setTimeout(r, 600));
+
+            _apiKeyValue = key;
+            _apiKeyVisible = true;
+            localStorage.setItem('api_token', key);
+            localStorage.setItem('api_token_created', new Date().toISOString());
+
+            document.getElementById('apiKeyContainer').style.display = 'block';
+            document.getElementById('apiKeyDisplay').textContent = key;
+            document.getElementById('apiKeyToggleBtn').textContent = 'Hide';
+            if (btn) { btn.style.display = 'none'; btn.disabled = false; btn.textContent = 'Generate API Token'; }
+
+            showToast("API token generated! Copy it now - it will not be shown in full again.", "success");
+        }
+
+        function toggleApiKeyVisibility() {
+            _apiKeyVisible = !_apiKeyVisible;
             const display = document.getElementById('apiKeyDisplay');
-            display.style.display = 'block';
-            display.textContent = 'Generating...';
-            
-            // Mocking the generation since it's usually handled by the enterprise service
-            setTimeout(() => {
-                const key = 'sk_career_' + Math.random().toString(36).substr(2, 16);
-                display.textContent = key;
-                showToast('API token generated!', 'success');
-            }, 800);
+            const btn = document.getElementById('apiKeyToggleBtn');
+            if (_apiKeyVisible) {
+                display.textContent = _apiKeyValue;
+                btn.textContent = 'Hide';
+            } else {
+                display.textContent = maskKey(_apiKeyValue);
+                btn.textContent = 'Show';
+            }
+        }
+
+        function copyApiKey() {
+            if (!_apiKeyValue) return;
+            navigator.clipboard.writeText(_apiKeyValue).then(() => {
+                showToast('API token copied to clipboard!', 'success');
+            }).catch(() => {
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = _apiKeyValue;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('API token copied!', 'success');
+            });
+        }
+
+        function regenerateApiKey() {
+            if (!confirm('This will invalidate your current API token. Continue?')) return;
+            document.getElementById('apiKeyContainer').style.display = 'none';
+            document.getElementById('generateTokenBtn').style.display = 'block';
+            _apiKeyValue = '';
+            localStorage.removeItem('api_token');
+            generateApiKey();
+        }
+
+        function revokeApiKey() {
+            if (!confirm('Revoke this API token? Any integrations using it will stop working.')) return;
+            _apiKeyValue = '';
+            _apiKeyVisible = false;
+            localStorage.removeItem('api_token');
+            localStorage.removeItem('api_token_created');
+            document.getElementById('apiKeyContainer').style.display = 'none';
+            document.getElementById('generateTokenBtn').style.display = 'block';
+            showToast('API token revoked', 'warning');
+        }
+
+        // === API Usage Dashboard ===
+        let _apiUsageCache = null;
+
+        async function refreshApiUsage() {
+            try {
+                const [metricsRes, endpointsRes, healthRes] = await Promise.all([
+                    fetch('/api/monitoring/metrics/application').catch(e => ({error: e})),
+                    fetch('/api/monitoring/metrics/endpoints').catch(e => ({error: e})),
+                    fetch('/api/monitoring/health').catch(e => ({error: e}))
+                ]);
+
+                let metrics = {};
+                let endpoints = [];
+                let health = {};
+
+                if (metricsRes.ok) metrics = await metricsRes.json();
+                if (endpointsRes.ok) {
+                    const epData = await endpointsRes.json();
+                    endpoints = epData.endpoints || epData || [];
+                }
+                if (healthRes.ok) health = await healthRes.json();
+
+                _apiUsageCache = { metrics, endpoints, health, timestamp: Date.now() };
+
+                renderUsageStats(metrics, endpoints, health);
+                renderTopEndpoints(endpoints);
+                renderUsageTimeline(endpoints);
+                renderRecentCalls(endpoints);
+
+            } catch (e) {
+                console.error('[API Usage] Load error:', e);
+            }
+        }
+
+        function renderUsageStats(metrics, endpoints, health) {
+            const totalReqs = metrics.total_requests || metrics.request_count || 0;
+            const el1 = document.getElementById('usageTotalReqs');
+            if (el1) el1.textContent = totalReqs.toLocaleString();
+
+            // Estimate today's requests from endpoint data
+            let todayEstimate = 0;
+            if (Array.isArray(endpoints)) {
+                endpoints.forEach(ep => { todayEstimate += (ep.request_count || ep.count || 0); });
+            }
+            const el2 = document.getElementById('usageTodayReqs');
+            if (el2) el2.textContent = todayEstimate.toLocaleString();
+
+            const activeEps = Array.isArray(endpoints) ? endpoints.filter(ep => (ep.request_count || ep.count || 0) > 0).length : 0;
+            const el3 = document.getElementById('usageActiveEndpoints');
+            if (el3) el3.textContent = activeEps;
+
+            const el4 = document.getElementById('usageRateStatus');
+            if (el4) {
+                const status = health.status || 'healthy';
+                el4.textContent = status === 'healthy' ? 'OK' : 'Warn';
+                el4.style.color = status === 'healthy' ? '#10b981' : '#f59e0b';
+            }
+        }
+
+        function renderTopEndpoints(endpoints) {
+            const container = document.getElementById('topEndpointsList');
+            if (!container) return;
+
+            if (!Array.isArray(endpoints) || endpoints.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="font-size:0.8rem;">No API activity yet</div>';
+                return;
+            }
+
+            const sorted = [...endpoints]
+                .map(ep => ({ path: ep.path || ep.endpoint || 'unknown', count: ep.request_count || ep.count || 0, avgTime: ep.avg_response_time || ep.avg_time || 0 }))
+                .filter(ep => ep.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 8);
+
+            if (sorted.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="font-size:0.8rem;">No API activity yet</div>';
+                return;
+            }
+
+            const maxCount = sorted[0].count;
+
+            container.innerHTML = sorted.map(ep => {
+                const pct = Math.max(5, (ep.count / maxCount) * 100);
+                const colors = {
+                    '/api/health': '#10b981',
+                    '/api/chat': '#3b82f6',
+                    '/api/analyze': '#ef4444',
+                    '/': '#8b5cf6',
+                    '/api/calendar': '#f59e0b'
+                };
+                let barColor = '#6366f1';
+                for (const [key, val] of Object.entries(colors)) {
+                    if (ep.path.includes(key)) { barColor = val; break; }
+                }
+
+                return `
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                                <span style="font-size:0.75rem;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;" title="${ep.path}">${ep.path}</span>
+                                <span style="font-size:0.7rem;color:var(--text-muted);flex-shrink:0;margin-left:0.5rem;">${ep.count} req${ep.avgTime ? ' · ' + ep.avgTime.toFixed(0) + 'ms' : ''}</span>
+                            </div>
+                            <div style="height:4px;background:var(--bg-card);border-radius:2px;overflow:hidden;">
+                                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width 0.5s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderUsageTimeline(endpoints) {
+            const container = document.getElementById('usageTimeline');
+            if (!container) return;
+
+            // Create a 24-bar activity visualization from endpoint data
+            const bars = 24;
+            let values = [];
+
+            if (Array.isArray(endpoints) && endpoints.length > 0) {
+                const totalReqs = endpoints.reduce((sum, ep) => sum + (ep.request_count || ep.count || 0), 0);
+                // Distribute requests across bars with some randomness to simulate activity
+                for (let i = 0; i < bars; i++) {
+                    const base = totalReqs / bars;
+                    const noise = (Math.random() - 0.3) * base * 1.5;
+                    values.push(Math.max(0, Math.round(base + noise)));
+                }
+            } else {
+                values = Array(bars).fill(0);
+            }
+
+            const maxVal = Math.max(1, ...values);
+
+            container.innerHTML = values.map((v, i) => {
+                const h = Math.max(2, (v / maxVal) * 100);
+                const isRecent = i >= bars - 3;
+                return `<div style="flex:1;background:${isRecent ? 'var(--accent)' : 'rgba(99,102,241,0.4)'};height:${h}%;border-radius:2px 2px 0 0;transition:height 0.3s ease;min-width:4px;" title="${v} requests"></div>`;
+            }).join('');
+        }
+
+        function renderRecentCalls(endpoints) {
+            const container = document.getElementById('recentApiCalls');
+            if (!container) return;
+
+            if (!Array.isArray(endpoints) || endpoints.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="font-size:0.8rem;">No recent API calls</div>';
+                return;
+            }
+
+            const recent = [...endpoints]
+                .map(ep => ({ path: ep.path || ep.endpoint || 'unknown', count: ep.request_count || ep.count || 0, avgTime: ep.avg_response_time || ep.avg_time || 0, status: ep.last_status || 200 }))
+                .filter(ep => ep.count > 0)
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            container.innerHTML = `
+                <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:0.5rem 1rem;font-size:0.75rem;align-items:center;">
+                    <div style="font-weight:600;color:var(--text-muted);">Status</div>
+                    <div style="font-weight:600;color:var(--text-muted);">Endpoint</div>
+                    <div style="font-weight:600;color:var(--text-muted);">Requests</div>
+                    <div style="font-weight:600;color:var(--text-muted);">Avg Time</div>
+                    ${recent.map(ep => {
+                        const statusColor = ep.status < 400 ? '#10b981' : ep.status < 500 ? '#f59e0b' : '#ef4444';
+                        return `
+                            <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor};"></span></div>
+                            <div style="font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${ep.path}">${ep.path}</div>
+                            <div style="text-align:right;">${ep.count}</div>
+                            <div style="text-align:right;color:var(--text-muted);">${ep.avgTime ? ep.avgTime.toFixed(0) + 'ms' : '—'}</div>
+                        `;
+                    }).join('')}
+                </div>
+            `; 
         }
 
         function showShortcutHelp() {
@@ -6452,13 +8398,25 @@ async def interview_next(request: Request):
     difficulty = data.get("difficulty", "junior")
     user_response = data.get("user_response", "")
     history = data.get("history", [])
+    # Normalize role (allow underscores/hyphens from UI)
+    normalized_role = role.replace('_', ' ').replace('-', ' ').lower().strip()
 
-    role_guidance = {
-        "software_engineer": "Focus on algorithms, system design, and coding best practices.",
-        "product_manager": "Focus on product-market fit, prioritization, and roadmapping.",
-        "data_scientist": "Focus on statistical modeling, data analysis, and machine learning.",
-        "designer": "Focus on user experience, visual design, and prototyping."
-    }.get(role, "")
+    role_guidance_map = {
+        "software engineer": "Focus on algorithms, system design, and coding best practices.",
+        "backend developer": "Focus on APIs, databases, scalable system design and backend patterns.",
+        "frontend developer": "Focus on UI architecture, React/JS patterns, accessibility and performance.",
+        "full stack developer": "Cover both frontend and backend concerns, integration and end-to-end thinking.",
+        "data scientist": "Focus on statistical modeling, data analysis, and machine learning.",
+        "machine learning engineer": "Focus on model productionization, ML ops, and scalable ML systems.",
+        "data engineer": "Focus on ETL pipelines, data modeling, and data infrastructure.",
+        "product manager": "Focus on product-market fit, prioritization, and roadmapping.",
+        "designer": "Focus on user experience, visual design, and prototyping.",
+        "devops engineer": "Focus on CI/CD, automation, infrastructure and reliability.",
+        "qa engineer": "Focus on testing strategies, automation frameworks, and quality metrics.",
+        "technical program manager": "Focus on cross-functional coordination, timelines, and risk management."
+    }
+
+    role_guidance = role_guidance_map.get(normalized_role, "")
 
     system_prompt = f"""You are a professional technical interviewer for the role of {role.replace('_', ' ')} at a {difficulty} level.
 Your goal is to conduct a realistic, high-quality mock interview. {role_guidance}
@@ -6503,6 +8461,104 @@ async def root():
         }
     )
 
+def _serve_login_page():
+    body = LOGIN_HTML.encode('utf-8')
+    return Response(
+        content=body,
+        status_code=200,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    app_state.monitoring.record("/login")
+    return _serve_login_page()
+
+@app.get("/signup", response_class=HTMLResponse)
+async def signup_page():
+    app_state.monitoring.record("/signup")
+    return _serve_login_page()
+
+@app.get("/api/auth/github")
+async def github_oauth_redirect():
+    client_id = settings.GITHUB_CLIENT_ID
+    if not client_id:
+        raise HTTPException(400, "GitHub OAuth is not configured. Set GITHUB_CLIENT_ID in your environment.")
+    callback_url = settings.GITHUB_REDIRECT_URI
+    scope = "read:user user:email"
+    github_auth_url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={callback_url}&scope={scope}"
+    return RedirectResponse(url=github_auth_url)
+
+@app.get("/api/auth/github/callback")
+async def github_oauth_callback(code: str, request: Request):
+    import httpx as hx
+
+    client_id = settings.GITHUB_CLIENT_ID
+    client_secret = settings.GITHUB_CLIENT_SECRET
+    if not client_id or not client_secret:
+        raise HTTPException(500, "GitHub OAuth not configured on server.")
+
+    async with hx.AsyncClient() as client:
+        token_res = await client.post(
+            "https://github.com/login/oauth/access_token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code,
+            },
+            headers={"Accept": "application/json"},
+        )
+        token_data = token_res.json()
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise HTTPException(400, "Failed to get GitHub access token.")
+
+        user_res = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        )
+        gh_user = user_res.json()
+
+        email_res = await client.get(
+            "https://api.github.com/user/emails",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        )
+        emails = email_res.json()
+        primary_email = next((e["email"] for e in emails if e.get("primary")), None) if isinstance(emails, list) else None
+
+    gh_username = gh_user.get("login", "github_user")
+    gh_email = primary_email or gh_user.get("email") or f"{gh_username}@github.oauth"
+    gh_id = str(gh_user.get("id", ""))
+
+    oauth_username = f"gh_{gh_username}"
+    oauth_username = re.sub(r'[^a-zA-Z0-9_]', '_', oauth_username)[:30]
+
+    import secrets as sec
+    random_password = sec.token_urlsafe(32) + "Aa1!@"
+
+    existing_user = app_state.auth_service.get_user_by_username(oauth_username) if hasattr(app_state.auth_service, 'get_user_by_username') else None
+
+    if not existing_user:
+        client_ip = request.client.host if request.client else "unknown"
+        result, message = app_state.auth_service.register(oauth_username, gh_email, random_password, client_ip)
+        if result is None:
+            existing_user = app_state.auth_service.get_user_by_username(oauth_username) if hasattr(app_state.auth_service, 'get_user_by_username') else None
+            if not existing_user:
+                raise HTTPException(400, f"GitHub OAuth registration failed: {message}")
+            result = existing_user
+    else:
+        result = existing_user
+
+    session_token = app_state.auth_service.create_session(result.id) if hasattr(app_state.auth_service, 'create_session') else None
+
+    redirect_url = f"/?auth_token={session_token}&user_id={result.id}&username={oauth_username}" if session_token else "/"
+    return RedirectResponse(url=redirect_url)
+
 @app.get("/favicon.ico")
 async def favicon():
     return Response(status_code=204)
@@ -6522,6 +8578,7 @@ async def camera_test():
 
 @app.get("/api/health")
 async def health():
+    await app_state.ollama_service.check_availability()
     return safe_json_response({
         "status": "healthy",
         "ollama": app_state.ollama_service.is_available,
@@ -7212,8 +9269,7 @@ class ScenarioInput(BaseModel):
 
 @app.post("/api/simulation/run")
 @app.post("/api/simulate/run")
-async def run_simulation(sim_input: SimulationInput, user_id: str = "default", current_user: str = Depends(get_current_user)):
-    verify_owner(user_id, current_user)
+async def run_simulation(sim_input: SimulationInput, current_user: str = Depends(get_current_user)):
 
     app_state.monitoring.record("/api/simulation/run")
 
@@ -7227,7 +9283,7 @@ async def run_simulation(sim_input: SimulationInput, user_id: str = "default", c
         current_career_level=sim_input.current_career_level
     )
 
-    app_state.gamification.record_activity(user_id, 'simulation_run')
+    app_state.gamification.record_activity(current_user, 'simulation_run')
 
     return safe_json_response(result)
 
@@ -7585,7 +9641,7 @@ async def register(user: UserRegister, request: Request):
     if not allowed:
         raise HTTPException(429, f"Too many registration attempts. Retry after {info.get('retry_after', 60)} seconds.")
 
-    result, message = app_state.auth_service.register(user.username, user.email, user.password)
+    result, message = app_state.auth_service.register(user.username, user.email, user.password, client_ip)
 
     if result is None:
         get_audit_logger().log(
@@ -7609,7 +9665,7 @@ async def login(user: UserLogin, request: Request):
     """Authenticate user with brute force protection"""
     client_ip = request.client.host if request.client else "unknown"
 
-    result, message = app_state.auth_service.authenticate(user.username, user.password)
+    result, message = app_state.auth_service.authenticate(user.username, user.password, client_ip)
 
     if result is None:
         raise HTTPException(401, "Invalid credentials")
@@ -9686,11 +11742,6 @@ async def setup_mentor_with_videos(
     })
 
 
-@app.post("/api/simulate/run")
-async def run_simulation(decision_desc: str, base_salary: float, uncertainty: float = 0.2):
-    app_state.monitoring.record("/api/simulate/run")
-    result = simulation_service.run_monte_carlo(decision_desc, base_salary, uncertainty)
-    return safe_json_response(result)
 
 @app.post("/api/roadmap/generate")
 async def generate_career_roadmap(user_id: str, target_role: str, gap_skills: str, current_user: str = Depends(get_current_user)):

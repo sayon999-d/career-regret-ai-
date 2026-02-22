@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: career-ai-app
+  namespace: career-ai
+  labels:
+    app: career-ai
+    component: app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: career-ai
+      component: app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: career-ai
+        component: app
+    spec:
+      containers:
+        - name: career-ai
+          image: IMAGE_PLACEHOLDER
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: career-ai-config
+            - secretRef:
+                name: career-ai-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/data
+            - name: app-exports
+              mountPath: /app/exports
+            - name: app-logs
+              mountPath: /app/logs
+      volumes:
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: career-ai-data-pvc
+        - name: app-exports
+          persistentVolumeClaim:
+            claimName: career-ai-exports-pvc
+        - name: app-logs
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: career-ai
+  labels:
+    app: career-ai
+    component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: career-ai
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: career-ai
+        component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: career-ai-redis-pvc

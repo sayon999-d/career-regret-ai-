@@ -434,4 +434,7 @@ class PersistenceService:
             conn.commit()
             return deleted
 
-persistence_service = PersistenceService()
+try:
+    persistence_service = PersistenceService()
+except Exception:
+    persistence_service = PersistenceService(db_path="/tmp/learning_data.db")

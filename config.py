@@ -50,6 +50,11 @@ class Settings(BaseSettings):
 
     ADMIN_PASSWORD: Optional[str] = None
 
+    # GitHub OAuth
+    GITHUB_CLIENT_ID: Optional[str] = None
+    GITHUB_CLIENT_SECRET: Optional[str] = None
+    GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/auth/github/callback"
+
     CACHE_MAX_SIZE: int = 500
     CACHE_TTL: int = 300
 
@@ -58,7 +63,15 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         extra = "ignore"
 
-settings = Settings()
+try:
+    settings = Settings()
+except PermissionError:
+    class SettingsNoEnv(Settings):
+        class Config:
+            env_file = None
+            env_file_encoding = "utf-8"
+            extra = "ignore"
+    settings = SettingsNoEnv()
 
 def validate_production_settings():
     warnings = []

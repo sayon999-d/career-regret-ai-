@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: career-ai-config
+  namespace: career-ai
+data:
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  DEBUG: "false"
+  OLLAMA_BASE_URL: "http://ollama-service:11434"
+  OLLAMA_MODEL: "llama3.2"
+  DATABASE_PATH: "/app/data/career_regret_ai.db"
+  EXPORT_DIR: "/app/exports"
+  LOG_DIR: "/app/logs"
+  CORS_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000"
+  GITHUB_REDIRECT_URI: "http://localhost:8000/api/auth/github/callback"
+  RATE_LIMIT_RPM: "30"
+  RATE_LIMIT_RPH: "500"
