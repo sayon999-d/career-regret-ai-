@@ -85,10 +85,11 @@ PHASE_3_MIGRATIONS = {
     """
 }
 
+import tempfile
 try:
     migration_service = MigrationService()
 except Exception:
-    migration_service = MigrationService(db_path="/tmp/learning_data.db")
+    migration_service = MigrationService(db_path=os.path.join(tempfile.gettempdir(), "learning_data.db"))
 
 if __name__ == "__main__":
     migration_service.apply_migrations(PHASE_3_MIGRATIONS)

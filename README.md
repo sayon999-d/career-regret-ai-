@@ -92,11 +92,20 @@ http://localhost:8000
 You will see the login page. Create an account (signup), then start:
 
 - **Chat** -- talk to the AI career counselor about any decision
+- **Quick Guide** -- in-app documentation with feature explanations, API codes, and quick-start links
 - **Decision Analysis** -- submit a structured decision for ML-powered regret prediction
 - **Resume Analysis** -- upload your resume to get skills gap analysis
 - **History** -- review past conversations and decisions
 - **Simulation** -- run Monte Carlo simulations to compare career paths
 - **Templates** -- use structured frameworks for common decisions (job offers, career switches, education)
+- **Scenario Builder** -- "what if" simulations with multi-year projections
+- **Career Feed** -- personalized salary trends, skills, and market intelligence
+- **Peer Insights** -- anonymous benchmarking against similar professionals
+- **Decision Frameworks** -- structured rubrics (BATNA, job offers, career pivots)
+- **Career Timeline** -- visual milestone tracking and progress reports
+- **SMART Goals** -- goal tracker with AI-generated sub-tasks and accountability
+- **Reversal Analyzer** -- assess if a regretted decision can still be reversed
+- **Culture Lens** -- compare work cultures and salary PPP across countries
 
 All features except AI chat work offline. The system degrades gracefully when Ollama is not running.
 
@@ -148,6 +157,17 @@ graph TB
         GAMIFY["Gamification<br/>Points, Achievements"]
     end
 
+    subgraph CareerIntel["Career Intelligence"]
+        SCENARIO["Scenario Builder<br/>What-If Simulations"]
+        FEED["Career Feed<br/>Personalized Intel"]
+        PEER["Peer Insights<br/>Anonymous Benchmarking"]
+        FRAMEWORK["Decision Frameworks<br/>Structured Rubrics"]
+        TIMELINE["Career Timeline<br/>Milestone Tracking"]
+        GOALS["SMART Goals<br/>Accountability Tracker"]
+        REVERSAL["Reversal Analyzer<br/>Undo Decisions"]
+        CULTURE["Culture Lens<br/>Cross-Country Compare"]
+    end
+
     UI --> SEC
     SEC --> CORS
     CORS --> RL
@@ -175,6 +195,15 @@ graph TB
     API --> EXPORT
     API --> GAMIFY
 
+    API --> SCENARIO
+    API --> FEED
+    API --> PEER
+    API --> FRAMEWORK
+    API --> TIMELINE
+    API --> GOALS
+    API --> REVERSAL
+    API --> CULTURE
+
     UI --> LS
 ```
 
@@ -194,6 +223,11 @@ sequenceDiagram
     AG->>AG: Check localStorage for session_token
     alt No Token
         AG-->>U: Redirect to /login
+    else Token Exists
+        AG->>S: Validate token via /api/auth/validate
+        alt Invalid Token
+            AG-->>U: Redirect to /login
+        end
     end
 
     U->>S: Decision Analysis Request
@@ -318,7 +352,7 @@ graph LR
 ### Authentication and Security
 - Username/password authentication with PBKDF2-SHA256 hashing
 - GitHub OAuth integration
-- Client-side auth guard with automatic redirect
+- Client-side auth guard with server-side token validation
 - Rate limiting, brute force protection, IP management
 - Security headers (CSP, HSTS, X-Frame-Options)
 
@@ -327,11 +361,20 @@ graph LR
 - Multi-turn conversation support
 - Automatic conversation history saving to journal
 - File and resume upload context
+- Task complexity classification for token optimization
+
+### Quick Guide
+- In-app documentation accessible from the sidebar
+- Detailed feature explanations with "What it does" and "How it works" sections
+- API endpoint code blocks for every feature
+- Quick-start navigation buttons to jump directly to any feature
+- Organized by sections: Core Features, Tools, New Features, Operations
 
 ### Resume Analysis
 - PDF and document parsing
 - Skills extraction and gap analysis
 - Experience and education parsing
+- ATS compatibility scoring
 - Job matching recommendations
 
 ### Decision Journal and History
@@ -352,13 +395,83 @@ graph LR
 - Skills gap assessment
 - Job market health indicators
 
+### Scenario Builder (New)
+- Natural language "what if" scenario input
+- Monte Carlo simulations with 1000+ iterations
+- Multi-variable projections: salary, satisfaction, growth
+- Scenario chaining for sequential decisions
+- Side-by-side comparison of multiple scenarios
+
+### Career Feed (New)
+- Personalized career intelligence feed
+- Content types: salary trends, skill gaps, industry news, opportunities
+- Relevance scoring and user preference tuning
+- Bookmark, dismiss, and engagement tracking
+
+### Peer Insights (New)
+- Anonymous peer registration by role, industry, and experience
+- Cohort matching and benchmarking
+- Decision pattern and regret distribution analysis
+- Data contribution for community enrichment
+
+### Decision Frameworks (New)
+- Six structured decision rubrics:
+  - Job Offer Evaluator
+  - BATNA Analyzer
+  - Career Pivot Scorecard
+  - Promotion Readiness
+  - Startup Risk Evaluator
+  - Remote Work Fit
+- Per-dimension slider scoring with AI-generated analysis
+
+### Career Timeline (New)
+- Visual milestone tracking (decisions, achievements, role changes, salary changes)
+- Metric snapshots over time
+- Progress report generation with velocity metrics
+- Export in JSON and Markdown
+
+### SMART Goals (New)
+- Goal creation with AI-generated sub-tasks (3-7 per goal)
+- Categories: career, skill, financial, network, education
+- Progress check-ins with status tracking
+- Weekly accountability report generation
+- Goal templates for common objectives
+
+### Reversal Analyzer (New)
+- Decision reversibility scoring (0-100)
+- Cost breakdown: financial, career, emotional, opportunity
+- Time-decay modeling
+- Step-by-step reversal roadmap
+- Partial correction alternatives
+
+### Culture Lens (New)
+- Hofstede cultural dimension comparison
+- Career norms by country (resume gaps, work hours, referrals)
+- Salary purchasing power parity (PPP) calculator
+- Side-by-side country comparison
+
 ### Additional Features
 - Personalized coaching with cognitive bias detection
 - Community insights with anonymized decision patterns
 - Gamification with points, levels, and 13 achievements
+- Interview practice with AI-powered mock sessions
 - Data export in JSON, PDF, and Text formats
 - Dark mode toggle
 - Voice input support (Whisper STT)
+
+## Dashboard Layout
+
+The web dashboard is a single-page application with a sidebar navigation and tabbed content area:
+
+| Section | Tabs |
+|---------|------|
+| **Workspace** | Chat, Quick Guide, Templates, History |
+| **Tools** | Graph View, Analytics, Resume Analysis, Outcome Simulation, Interview Practice |
+| **Advanced** | Goals, Opportunities, Mentor Matching, Privacy |
+| **New Features** | Scenario Builder, Career Feed, Peer Insights, Frameworks, Timeline, Smart Goals, Reversal Analyzer, Culture Lens |
+| **Operations** | System Status, Calendar, Integrations |
+
+The **Quick Guide** tab serves as an in-app reference, documenting every feature with descriptions, technical explanations, API endpoints, and quick-start buttons.
 
 ## Technology Stack
 
@@ -458,6 +571,7 @@ kubectl apply -f k8s/hpa.yaml
 | `/signup` | GET | Signup page |
 | `/api/auth/register` | POST | Register new user |
 | `/api/auth/login` | POST | Login and get session token |
+| `/api/auth/validate` | GET | Validate session token |
 | `/api/auth/logout` | POST | Invalidate session |
 | `/api/auth/github` | GET | GitHub OAuth redirect |
 | `/api/auth/github/callback` | GET | GitHub OAuth callback |
@@ -491,11 +605,84 @@ kubectl apply -f k8s/hpa.yaml
 | `/api/resume/parse` | POST | Parse resume text |
 | `/api/resume/{resume_id}` | GET | Get parsed resume data |
 
+### Scenario Builder
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/scenario/create` | POST | Create what-if scenario |
+| `/api/scenario/chain` | POST | Chain scenarios sequentially |
+| `/api/scenario/compare` | POST | Compare multiple scenarios |
+| `/api/scenario/list/{user_id}` | GET | List user scenarios |
+
+### Career Feed
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/feed/preferences/{user_id}` | POST | Set feed preferences |
+| `/api/feed/{user_id}` | GET | Get personalized feed |
+| `/api/feed/read/{user_id}/{item_id}` | POST | Mark item as read |
+| `/api/feed/bookmark/{user_id}/{item_id}` | POST | Bookmark item |
+| `/api/feed/dismiss/{user_id}/{item_id}` | POST | Dismiss item |
+| `/api/feed/bookmarks/{user_id}` | GET | Get bookmarked items |
+| `/api/feed/stats/{user_id}` | GET | Feed engagement stats |
+
+### Peer Insights
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/peers/register` | POST | Register peer profile |
+| `/api/peers/comparison/{user_id}` | GET | Get peer comparison |
+| `/api/peers/contribute` | POST | Contribute decision data |
+| `/api/peers/distribution/{user_id}/{decision_type}` | GET | Get peer distributions |
+
+### Decision Frameworks
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/frameworks/list` | GET | List available frameworks |
+| `/api/frameworks/start` | POST | Start framework evaluation |
+| `/api/frameworks/score` | POST | Score framework dimensions |
+| `/api/frameworks/quick-score` | POST | Quick score with AI analysis |
+| `/api/frameworks/history/{user_id}` | GET | Get evaluation history |
+
+### Career Timeline
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/timeline/milestone` | POST | Add milestone |
+| `/api/timeline/metric-snapshot` | POST | Record metric snapshot |
+| `/api/timeline/{user_id}` | GET | Get timeline |
+| `/api/timeline/report/{user_id}` | GET | Get progress report |
+| `/api/timeline/export/{user_id}` | GET | Export timeline |
+
+### SMART Goals
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/goals/create` | POST | Create SMART goal |
+| `/api/goals/{user_id}` | GET | List active goals |
+| `/api/goals/{user_id}/{goal_id}` | GET | Get goal details |
+| `/api/goals/subtask/complete` | POST | Complete sub-task |
+| `/api/goals/checkin` | POST | Goal check-in |
+| `/api/goals/accountability/{user_id}` | GET | Accountability report |
+| `/api/goals/templates` | GET | Goal templates |
+
+### Reversal Analyzer
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/reversal/analyze` | POST | Analyze reversibility |
+| `/api/reversal/history/{user_id}` | GET | Past reversal analyses |
+
+### Culture Lens
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/culture/countries` | GET | Supported countries |
+| `/api/culture/profile/{country_code}` | GET | Country cultural profile |
+| `/api/culture/adapt-advice` | POST | Culture-aware career advice |
+| `/api/culture/adjust-salary` | POST | PPP salary conversion |
+| `/api/culture/set-locale` | POST | Set user locale |
+| `/api/culture/compare/{country_a}/{country_b}` | GET | Compare two countries |
+| `/api/culture/detect-language` | GET | Detect user language |
+
 ## Project Structure
 
 ```
 career-regret-ai-/
-├── main.py                           FastAPI application (single-file dashboard)
+├── main.py                           FastAPI application (single-file dashboard + API)
 ├── config.py                         Configuration (pydantic BaseSettings)
 ├── requirements.txt                  Python dependencies
 ├── Dockerfile                        Multi-stage production Docker image
@@ -516,7 +703,8 @@ career-regret-ai-/
 │   ├── ml_pipeline.py                Transformer + Gradient Boosting models
 │   ├── graph_engine.py               Decision knowledge graph (NetworkX)
 │   └── database.py                   SQLAlchemy ORM models
-├── services/
+├── services/                         65+ microservice modules
+│   ├── __init__.py                   Service exports and initialization
 │   ├── security.py                   Auth, rate limiting, brute force protection
 │   ├── ollama_service.py             LLM integration
 │   ├── rag_service.py                RAG with ChromaDB
@@ -526,11 +714,20 @@ career-regret-ai-/
 │   ├── resume_parser_service.py      Resume parsing and analysis
 │   ├── simulation_service.py         Career path simulation
 │   ├── coaching_service.py           Personalized coaching
-│   ├── market_intelligence_service.py
-│   ├── community_insights_service.py
+│   ├── market_intelligence_service.py Salary benchmarking, trends
+│   ├── community_insights_service.py  Anonymized community data
 │   ├── gamification_service.py       Points and achievements
 │   ├── export_service.py             Data export (JSON, PDF, Text)
 │   ├── analytics.py                  Analytics engine
+│   ├── scenario_builder_service.py   What-if Monte Carlo simulations
+│   ├── career_feed_service.py        Personalized career intelligence
+│   ├── peer_comparison_service.py    Anonymous peer benchmarking
+│   ├── decision_framework_service.py Decision rubrics (BATNA, etc.)
+│   ├── career_timeline_service.py    Career milestone timeline
+│   ├── goal_tracking_service.py      SMART goal tracker
+│   ├── reversal_analyzer_service.py  Decision reversibility analysis
+│   ├── multilingual_service.py       i18n and locale support
+│   ├── pwa_service.py                Progressive Web App support
 │   └── ...                           40+ additional service modules
 ├── tests/
 │   ├── conftest.py                   Pytest fixtures
@@ -582,7 +779,7 @@ graph LR
 ## Documentation
 
 - **[models/README.md](models/README.md)** -- ML pipeline architecture, graph engine design, database models
-- **[services/README.md](services/README.md)** -- Microservices architecture, 50+ service definitions, dependency graphs
+- **[services/README.md](services/README.md)** -- 65+ microservices, architecture diagrams, complete service inventory
 - **[tests/README.md](tests/README.md)** -- Testing framework, test organization, fixtures, CI/CD integration
 - **[docs/README.md](docs/README.md)** -- API documentation index and quick start
 - **[SECURITY.md](SECURITY.md)** -- Security features, configuration, and best practices

@@ -1,6 +1,3 @@
-# Career Decision Regret AI - Production Dockerfile
-# Multi-stage build for optimized image size
-
 # Build stage
 FROM python:3.11-slim AS builder
 

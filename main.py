@@ -55,7 +55,17 @@ from services import (
     ab_testing_service, enterprise_integration_service,
     roadmap_service, knowledge_service, simulation_service,
     YouTubeRecommendationService, youtube_recommendation_service,
-    LLMProvider
+    LLMProvider,
+    OutcomeTrackerService, outcome_tracker_service,
+    ScenarioBuilderService, scenario_builder_service,
+    CareerFeedService, career_feed_service,
+    PeerComparisonService, peer_comparison_service,
+    DecisionFrameworkService, decision_framework_service,
+    CareerTimelineService, career_timeline_service,
+    GoalTrackingService, goal_tracking_service,
+    ReversalAnalyzerService, reversal_analyzer_service,
+    MultilingualService, multilingual_service,
+    PWAService, pwa_service
 )
 from services.migration_service import migration_service, PHASE_3_MIGRATIONS
 
@@ -237,6 +247,16 @@ class AppState:
     persistence: PersistenceService = None
     multiverse_viz: MultiverseVisualizationService = None
     youtube_recommendation: YouTubeRecommendationService = None
+    outcome_tracker: OutcomeTrackerService = None
+    scenario_builder: ScenarioBuilderService = None
+    career_feed: CareerFeedService = None
+    peer_comparison: PeerComparisonService = None
+    decision_framework: DecisionFrameworkService = None
+    career_timeline: CareerTimelineService = None
+    goal_tracking: GoalTrackingService = None
+    reversal_analyzer: ReversalAnalyzerService = None
+    multilingual: MultilingualService = None
+    pwa: PWAService = None
 
 app_state = AppState()
 
@@ -312,7 +332,8 @@ async def lifespan(app: FastAPI):
     try:
         app_state.persistence = PersistenceService()
     except Exception:
-        app_state.persistence = PersistenceService(db_path="/tmp/learning_data.db")
+        import tempfile
+        app_state.persistence = PersistenceService(db_path=os.path.join(tempfile.gettempdir(), "learning_data.db"))
     print("Persistence Service initialized")
 
     app_state.multiverse_viz = MultiverseVisualizationService()
@@ -321,7 +342,38 @@ async def lifespan(app: FastAPI):
     app_state.youtube_recommendation = youtube_recommendation_service
     print("YouTube Recommendation Engine initialized")
 
-    print("Feature Services initialized (Journal, Simulation, Coaching, Market, Community, Export, Gamification, Emotion Detection, Outcome Learning, Decision Templates, Future Self, Opportunity Scout, Bias Interceptor, Global Regret DB, Persistence, Multiverse Viz, YouTube Recommendations)")
+    # --- Phase 2: New Feature Services ---
+    app_state.outcome_tracker = outcome_tracker_service
+    print("Decision Outcome Tracker initialized")
+
+    app_state.scenario_builder = scenario_builder_service
+    print("AI Scenario Builder initialized")
+
+    app_state.career_feed = career_feed_service
+    print("Career Intelligence Feed initialized")
+
+    app_state.peer_comparison = peer_comparison_service
+    print("Anonymous Peer Comparison initialized")
+
+    app_state.decision_framework = decision_framework_service
+    print("Decision Framework Library initialized")
+
+    app_state.career_timeline = career_timeline_service
+    print("Career Progress Timeline initialized")
+
+    app_state.goal_tracking = goal_tracking_service
+    print("Goal Setting & Accountability initialized")
+
+    app_state.reversal_analyzer = reversal_analyzer_service
+    print("Decision Reversal Analyzer initialized")
+
+    app_state.multilingual = multilingual_service
+    print("Multi-Language & Cultural Context initialized")
+
+    app_state.pwa = pwa_service
+    print("PWA Service initialized")
+
+    print("All Feature Services initialized (including 10 new features: Outcome Tracker, Scenario Builder, Career Feed, Peer Comparison, Decision Frameworks, Career Timeline, Goal Tracking, Reversal Analyzer, Multi-Language, PWA)")
 
 
     print("All services initialized successfully")
@@ -1235,8 +1287,25 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 if (userId) localStorage.setItem('user_id', userId);
                 if (username) localStorage.setItem('username', username);
                 window.history.replaceState({}, '', '/');
-            } else if (!localStorage.getItem('session_token')) {
-                window.location.replace('/login');
+            } else {
+                const token = localStorage.getItem('session_token');
+                if (!token) {
+                    window.location.replace('/login');
+                } else {
+                    // Validate token with server
+                    fetch('/api/auth/validate', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    }).then(r => r.json()).then(data => {
+                        if (!data.valid) {
+                            localStorage.removeItem('session_token');
+                            localStorage.removeItem('user_id');
+                            localStorage.removeItem('username');
+                            window.location.replace('/login');
+                        }
+                    }).catch(() => {
+                        // If validate endpoint fails, allow access (offline/dev mode)
+                    });
+                }
             }
         })();
     </script>
@@ -1495,11 +1564,13 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             border: none;
             border-radius: var(--radius-md);
             color: var(--text-secondary);
-            font-size: 0.875rem;
+            font-size: 0.85rem;
+            font-weight: 400;
+            letter-spacing: 0.01em;
             text-align: left;
             cursor: pointer;
             transition: all var(--transition-fast);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             position: relative;
             overflow: hidden;
         }
@@ -1520,7 +1591,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         .nav-btn:hover {
             background: var(--bg-hover);
             color: var(--text-primary);
-            transform: translateX(4px);
+            transform: translateX(3px);
         }
         
         .nav-btn:hover::before {
@@ -2785,6 +2856,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         <div class="nav-section">
             <div class="nav-label">Workspace</div>
             <button class="nav-btn active" onclick="showTab('chat')" id="nav-chat">Chat</button>
+            <button class="nav-btn" onclick="showTab('guide')" id="nav-guide">Quick Guide</button>
             <button class="nav-btn" onclick="showTab('templates')" id="nav-templates">Templates</button>
             <button class="nav-btn" onclick="showTab('journal')" id="nav-journal">History</button>
         </div>
@@ -2804,6 +2876,18 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             <button class="nav-btn" onclick="showTab('opportunities')" id="nav-opportunities">Opportunities</button>
             <button class="nav-btn" onclick="showTab('mentor')" id="nav-mentor">Mentor Matching</button>
             <button class="nav-btn" onclick="showTab('privacy')" id="nav-privacy">Privacy</button>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">New Features</div>
+            <button class="nav-btn" onclick="showTab('scenario-builder')" id="nav-scenario-builder">Scenario Builder</button>
+            <button class="nav-btn" onclick="showTab('career-feed')" id="nav-career-feed">Career Feed</button>
+            <button class="nav-btn" onclick="showTab('peer-insights')" id="nav-peer-insights">Peer Insights</button>
+            <button class="nav-btn" onclick="showTab('frameworks')" id="nav-frameworks">Frameworks</button>
+            <button class="nav-btn" onclick="showTab('timeline')" id="nav-timeline">Timeline</button>
+            <button class="nav-btn" onclick="showTab('smart-goals')" id="nav-smart-goals">Smart Goals</button>
+            <button class="nav-btn" onclick="showTab('reversal')" id="nav-reversal">Reversal Analyzer</button>
+            <button class="nav-btn" onclick="showTab('culture')" id="nav-culture">Culture Lens</button>
         </div>
 
         <div class="nav-section">
@@ -2847,6 +2931,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
             if (bc) {
                 const labelMap = {
                     'chat': 'Career Counselor',
+                    'guide': 'Quick Guide',
                     'templates': 'Decision Templates',
                     'journal': 'History',
                     'graph': 'Graph View',
@@ -4151,6 +4236,663 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 </div>
             </div>
         </div>
+
+        <!-- Scenario Builder Tab -->
+        <div id="tab-scenario-builder" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">What-If Scenario Builder</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Build a Scenario</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Describe any career "what if" in plain English. The AI will parse your scenario, run a Monte Carlo simulation, and show projected outcomes.</p>
+                        <textarea id="scenarioInput" rows="3" placeholder="e.g. What if I leave my $120k job to join a Series A startup as a founding engineer for $95k + 1% equity?"
+                                  style="width:100%;padding:0.75rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);resize:none;margin-bottom:1rem;font-family:inherit;"></textarea>
+                        <div style="display:flex;gap:0.75rem;">
+                            <button onclick="runScenario()" style="padding:0.75rem 2rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Simulate</button>
+                            <button onclick="compareScenarios()" id="compareBtn" style="padding:0.75rem 1.5rem;background:rgba(0,0,0,0.4);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:var(--text-secondary);cursor:pointer;display:none;transition:all 0.25s;">Compare Side-by-Side</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Simulation Results</div>
+                    </div>
+                    <div class="card-body" id="scenarioResults">
+                        <div class="empty-state">Run a scenario above to see projected outcomes</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Your Scenarios</div>
+                    </div>
+                    <div class="card-body" id="scenarioHistory" style="max-height:300px;overflow-y:auto;">
+                        <div class="empty-state">No scenarios created yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Career Feed Tab -->
+        <div id="tab-career-feed" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Career Intelligence Feed</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title">Your Personalized Feed</div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button onclick="loadCareerFeed()" style="padding:0.4rem 0.8rem;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:0.75rem;transition:all 0.25s;">Refresh</button>
+                            <button onclick="showFeedPreferences()" style="padding:0.4rem 0.8rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-size:0.75rem;cursor:pointer;transition:all 0.25s;">Preferences</button>
+                        </div>
+                    </div>
+                    <div class="card-body" id="careerFeedContent" style="max-height:600px;overflow-y:auto;">
+                        <div class="empty-state">Loading your personalized career intelligence...</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Feed Stats</div></div>
+                    <div class="card-body" id="feedStats">
+                        <div class="empty-state">No data yet</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Bookmarked</div></div>
+                    <div class="card-body" id="feedBookmarks" style="max-height:300px;overflow-y:auto;">
+                        <div class="empty-state">No bookmarks yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Peer Insights Tab -->
+        <div id="tab-peer-insights" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Peer Insights</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Your Peer Profile</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Set your profile to see how people with similar backgrounds navigated career decisions. All data is anonymized.</p>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem;">
+                            <select id="peerRole" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="software_engineer">Software Engineer</option>
+                                <option value="product_manager">Product Manager</option>
+                                <option value="data_scientist">Data Scientist</option>
+                                <option value="designer">Designer</option>
+                                <option value="manager">Engineering Manager</option>
+                                <option value="devops_engineer">DevOps Engineer</option>
+                            </select>
+                            <select id="peerIndustry" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="technology">Technology</option>
+                                <option value="finance">Finance</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="ecommerce">E-commerce</option>
+                                <option value="saas">SaaS</option>
+                            </select>
+                            <input type="number" id="peerExperience" placeholder="Years of experience" min="0" max="40" value="5" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                        </div>
+                        <button onclick="loadPeerComparison()" style="padding:0.75rem 2rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Find My Peers</button>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Peer Comparison Results</div>
+                    </div>
+                    <div class="card-body" id="peerResults" style="max-height:500px;overflow-y:auto;">
+                        <div class="empty-state">Set your profile above and click "Find My Peers" to see how you compare</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decision Frameworks Tab -->
+        <div id="tab-frameworks" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Decision Frameworks</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Choose a Framework</div>
+                    </div>
+                    <div class="card-body" id="frameworkList">
+                        <div class="empty-state">Loading frameworks...</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;" id="frameworkWorkspace" style="display:none;">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title" id="activeFrameworkTitle">Framework Workspace</div>
+                        <button onclick="resetFramework()" style="padding:0.4rem 0.8rem;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:0.75rem;transition:all 0.25s;">Reset</button>
+                    </div>
+                    <div class="card-body" id="frameworkWorkspaceBody">
+                        <div class="empty-state">Select a framework above to begin</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;" id="frameworkResultCard" style="display:none;">
+                    <div class="card-header">
+                        <div class="card-title">Framework Result</div>
+                    </div>
+                    <div class="card-body" id="frameworkResult">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Career Timeline Tab -->
+        <div id="tab-timeline" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Career Timeline</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title">Add Milestone</div>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
+                            <input type="text" id="milestoneTitle" placeholder="Milestone title" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                            <select id="milestoneType" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="decision">Decision</option>
+                                <option value="achievement">Achievement</option>
+                                <option value="role_change">Role Change</option>
+                                <option value="salary_change">Salary Change</option>
+                                <option value="skill">Skill Acquired</option>
+                                <option value="goal_completion">Goal Completed</option>
+                            </select>
+                            <input type="date" id="milestoneDate" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                        </div>
+                        <textarea id="milestoneDesc" rows="2" placeholder="Describe this milestone..." style="width:100%;padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);resize:none;margin-bottom:1rem;font-family:inherit;"></textarea>
+                        <button onclick="addMilestone()" style="padding:0.75rem 2rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Add Milestone</button>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title">Your Career Journey</div>
+                        <button onclick="loadTimeline()" style="padding:0.4rem 0.8rem;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:0.75rem;transition:all 0.25s;">Refresh</button>
+                    </div>
+                    <div class="card-body" id="timelineContent" style="max-height:500px;overflow-y:auto;">
+                        <div class="empty-state">Add your first career milestone above to start building your timeline</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Progress Report</div>
+                    </div>
+                    <div class="card-body" id="timelineReport">
+                        <div class="empty-state">Add milestones to generate your progress report</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Smart Goals Tab -->
+        <div id="tab-smart-goals" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">SMART Goals & Accountability</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Create SMART Goal</div>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+                            <input type="text" id="smartGoalTitle" placeholder="Goal title (e.g., Learn Rust, Get promoted)" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                            <select id="smartGoalCategory" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="skills">Skills</option>
+                                <option value="career_move">Career Move</option>
+                                <option value="compensation">Compensation</option>
+                                <option value="leadership">Leadership</option>
+                                <option value="networking">Networking</option>
+                                <option value="education">Education</option>
+                                <option value="work_life">Work-Life Balance</option>
+                            </select>
+                        </div>
+                        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+                            <textarea id="smartGoalDesc" rows="2" placeholder="Describe your goal..." style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);resize:none;font-family:inherit;"></textarea>
+                            <select id="smartGoalPriority" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="medium">Medium Priority</option>
+                                <option value="high">High Priority</option>
+                                <option value="critical">Critical</option>
+                                <option value="low">Low Priority</option>
+                            </select>
+                            <input type="date" id="smartGoalDeadline" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                        </div>
+                        <button onclick="createSmartGoal()" style="padding:0.75rem 2rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Create Goal</button>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="card-title">Active Goals</div>
+                        <button onclick="loadAccountabilityReport()" style="padding:0.4rem 0.8rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-size:0.75rem;cursor:pointer;transition:all 0.25s;">Accountability Report</button>
+                    </div>
+                    <div class="card-body" id="smartGoalsList" style="max-height:500px;overflow-y:auto;">
+                        <div class="empty-state">Create your first SMART goal above</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;" id="accountabilityReportCard" style="display:none;">
+                    <div class="card-header">
+                        <div class="card-title">Weekly Accountability Report</div>
+                    </div>
+                    <div class="card-body" id="accountabilityReport">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reversal Analyzer Tab -->
+        <div id="tab-reversal" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Decision Reversal Analyzer</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Analyze a Decision You Regret</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">If you're regretting a career decision, the Reversal Analyzer will assess reversibility, costs, and give you a concrete roadmap for course-correction.</p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+                            <input type="text" id="reversalDecision" placeholder="Describe the decision (e.g., Left Google to join a startup)" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                            <select id="reversalType" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="job_change">Job Change</option>
+                                <option value="career_switch">Career Switch</option>
+                                <option value="startup">Startup</option>
+                                <option value="education">Education</option>
+                                <option value="relocation">Relocation</option>
+                                <option value="promotion">Promotion/Role Change</option>
+                            </select>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
+                            <div>
+                                <label style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Months since decision</label>
+                                <input type="number" id="reversalMonths" value="3" min="0" max="120" style="width:100%;padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Current regret level (0-100)</label>
+                                <input type="range" id="reversalRegret" min="0" max="100" value="60" oninput="document.getElementById('regretVal').textContent=this.value" style="width:100%;margin-top:0.5rem;">
+                                <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-muted);"><span>No regret</span><span id="regretVal" style="font-weight:700;color:var(--accent);">60</span><span>Extreme</span></div>
+                            </div>
+                        </div>
+                        <button onclick="analyzeReversal()" style="padding:0.75rem 2rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Analyze Reversibility</button>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Reversal Analysis</div>
+                    </div>
+                    <div class="card-body" id="reversalResults" style="max-height:600px;overflow-y:auto;">
+                        <div class="empty-state">Fill out the form above to get your reversal analysis</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Culture Lens Tab -->
+        <div id="tab-culture" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Culture Lens</span>
+                </div>
+            </div>
+            <div class="content-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Compare Work Cultures</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Compare career norms, work-life balance, and cultural dimensions between countries to make informed relocation or remote work decisions.</p>
+                        <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;">
+                            <select id="cultureCountryA" style="flex:1;padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="us">United States</option>
+                                <option value="uk">United Kingdom</option>
+                                <option value="de">Germany</option>
+                                <option value="jp">Japan</option>
+                                <option value="in">India</option>
+                                <option value="br">Brazil</option>
+                                <option value="sg">Singapore</option>
+                                <option value="remote">Remote/Global</option>
+                            </select>
+                            <span style="font-size:0.9rem;color:var(--text-muted);font-weight:600;">vs</span>
+                            <select id="cultureCountryB" style="flex:1;padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="de">Germany</option>
+                                <option value="us">United States</option>
+                                <option value="uk">United Kingdom</option>
+                                <option value="jp">Japan</option>
+                                <option value="in">India</option>
+                                <option value="br">Brazil</option>
+                                <option value="sg">Singapore</option>
+                                <option value="remote">Remote/Global</option>
+                            </select>
+                            <button onclick="compareCultures()" style="padding:0.65rem 1.5rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Compare</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Culture Comparison Results</div>
+                    </div>
+                    <div class="card-body" id="cultureResults" style="max-height:500px;overflow-y:auto;">
+                        <div class="empty-state">Select two countries and click Compare</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <div class="card-title">Salary PPP Calculator</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">See what your salary is truly worth in purchasing power across countries.</p>
+                        <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;">
+                            <div>
+                                <label style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Annual Salary (USD)</label>
+                                <input type="number" id="pppSalary" value="150000" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);width:140px;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">From Country</label>
+                                <select id="pppFrom" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                    <option value="us">US</option><option value="uk">UK</option><option value="de">Germany</option>
+                                    <option value="jp">Japan</option><option value="in">India</option><option value="sg">Singapore</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">To Country</label>
+                                <select id="pppTo" style="padding:0.65rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                    <option value="in">India</option><option value="us">US</option><option value="uk">UK</option>
+                                    <option value="de">Germany</option><option value="jp">Japan</option><option value="sg">Singapore</option>
+                                </select>
+                            </div>
+                            <button onclick="calculatePPP()" style="padding:0.65rem 1.5rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.25s;">Calculate</button>
+                        </div>
+                        <div id="pppResult" style="margin-top:1rem;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Guide Tab -->
+        <div id="tab-guide" class="tab-content">
+            <div class="header">
+                <div class="breadcrumb">
+                    <span>Home</span><span>/</span><span class="breadcrumb-current">Quick Guide</span>
+                </div>
+            </div>
+            <div style="max-height:calc(100vh - 80px);overflow-y:auto;padding:0 1rem 2rem;">
+
+                <!-- Getting Started -->
+                <div class="card" style="margin-bottom:1rem;">
+                    <div class="card-header"><div class="card-title">Getting Started</div></div>
+                    <div class="card-body" style="line-height:1.8;font-size:0.85rem;color:var(--text-secondary);">
+                        <p>Welcome to <strong style="color:var(--text-primary);">Career Decision AI</strong> — an AI-powered career decision analysis platform. Use the sidebar to navigate between features. Start by chatting with the AI counselor, or explore any feature below.</p>
+                        <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--bg-elevated);border-radius:8px;font-family:monospace;font-size:0.78rem;color:var(--text-muted);">
+                            Base URL: <span style="color:var(--text-primary);">http://localhost:8000</span><br>
+                            Auth: <span style="color:var(--text-primary);">Bearer token via /api/auth/login</span><br>
+                            All API responses are JSON.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CORE FEATURES -->
+                <div style="font-size:0.7rem;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin:1.5rem 0 0.75rem;padding-left:0.25rem;">Core Features</div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Chat — AI Career Counselor</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Have a natural conversation with an AI career counselor. Discuss decisions, get advice, analyze trade-offs, and receive personalized recommendations.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Uses NLP to detect decision context, emotions, and cognitive biases. The AI maintains conversation history for context-aware responses. Supports file attachments (resumes, offer letters) for deeper analysis.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;overflow-x:auto;">
+                            <span style="color:#22c55e;">POST</span> /api/chat<br>
+                            Body: { "message": "Should I accept this offer?",<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"user_id": "user_123" }
+                        </div>
+                        <button onclick="showTab('chat')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Open Chat</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Templates — Decision Analysis Templates</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Pre-built templates for common career decisions: job offers, promotions, career switches, startup vs corporate, relocation, and more.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Each template structures your decision into weighted criteria. The AI scores each option and produces a recommendation with confidence levels.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">GET</span> /api/templates &rarr; list all templates<br>
+                            <span style="color:#22c55e;">POST</span> /api/analyze &rarr; run analysis on a decision
+                        </div>
+                        <button onclick="showTab('templates')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Explore Templates</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">History — Decision Journal</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Review all past decisions, their outcomes, and what you learned. Tracks decision patterns over time.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Every decision analysis is saved with timestamps, scores, and outcomes. You can revisit and update outcomes to improve future recommendations.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">GET</span> /api/decisions/{user_id} &rarr; fetch decision history
+                        </div>
+                        <button onclick="showTab('journal')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">View History</button>
+                    </div>
+                </div>
+
+                <!-- TOOLS -->
+                <div style="font-size:0.7rem;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin:1.5rem 0 0.75rem;padding-left:0.25rem;">Tools</div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Graph View — Decision Network</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Interactive force-directed graph that visualizes how your career decisions are connected. See cause-and-effect chains and decision clusters.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Uses D3.js force simulation. Nodes represent decisions, edges represent dependencies. Color-coding shows outcomes (green = positive, red = regretted). Zoom, pan, and click nodes for details.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">GET</span> /api/graph/{user_id} &rarr; graph data (nodes + edges)
+                        </div>
+                        <button onclick="showTab('graph')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Open Graph</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Analytics — Decision Insights</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Dashboard of patterns, trends, and metrics from your decision history. Shows regret scores, decision frequency, and cognitive bias detection.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> ML pipeline analyzes your decisions to detect patterns — anchoring bias, loss aversion, status quo bias, etc. Charts show trends over time.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">GET</span> /api/analytics/{user_id} &rarr; analytics data
+                        </div>
+                        <button onclick="showTab('analytics')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">View Analytics</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Resume Analysis</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Upload your resume for AI-powered analysis. Get skill gap detection, ATS compatibility scores, improvement suggestions, and career path recommendations.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Parses PDF/DOCX files, extracts skills, experience, and education. Compares against industry requirements and job market trends.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/resume/upload &rarr; multipart file upload<br>
+                            <span style="color:#22c55e;">GET</span> /api/resume/analysis/{user_id} &rarr; get results
+                        </div>
+                        <button onclick="showTab('resume')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Analyze Resume</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Outcome Simulation</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> 3D multiverse visualization showing parallel career paths. See how different decisions lead to different outcomes over 1-5 years.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Uses Three.js for 3D rendering. Monte Carlo simulations model salary growth, job satisfaction, and skill development across multiple decision branches.</p>
+                        <button onclick="showTab('simulate')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Launch Simulation</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Interview Practice</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> AI-powered mock interviews tailored to your target role. Get real-time feedback on your answers, body language tips, and scoring.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Generates role-specific questions using NLP. Evaluates answer quality, relevance, and communication clarity. Supports behavioral, technical, and case interviews.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/interview/start &rarr; begin session<br>
+                            <span style="color:#22c55e;">POST</span> /api/interview/answer &rarr; submit answer for scoring
+                        </div>
+                        <button onclick="showTab('interview')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Start Practice</button>
+                    </div>
+                </div>
+
+                <!-- NEW FEATURES -->
+                <div style="font-size:0.7rem;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin:1.5rem 0 0.75rem;padding-left:0.25rem;">New Features</div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Scenario Builder — What-If Simulations</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Describe any career "what if" in plain English and get Monte Carlo simulation results with projected outcomes across salary, satisfaction, and growth.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> NLP parses your scenario, extracts variables (salary, equity, role), then runs 1000+ Monte Carlo iterations modeling uncertainty. Returns probability distributions for outcomes at 1, 3, and 5 years.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/scenario/create?description=...&amp;user_id=...<br>
+                            <span style="color:#22c55e;">GET</span> /api/scenario/list/{user_id} &rarr; past scenarios<br>
+                            <span style="color:#22c55e;">POST</span> /api/scenario/compare &rarr; side-by-side comparison
+                        </div>
+                        <button onclick="showTab('scenario-builder')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Try Scenario Builder</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Career Feed — Personalized Intelligence</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Curated feed of salary trends, skill gaps, industry news, and opportunities personalized to your profile and career goals.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Generates content based on your role, industry, and interests. Feed items are scored by relevance. You can bookmark, dismiss, or adjust preferences to refine recommendations.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/feed/preferences/{user_id} &rarr; set interests<br>
+                            <span style="color:#22c55e;">GET</span> /api/feed/{user_id} &rarr; get personalized feed<br>
+                            <span style="color:#22c55e;">POST</span> /api/feed/bookmark/{user_id}/{item_id}
+                        </div>
+                        <button onclick="showTab('career-feed')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Open Career Feed</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Peer Insights — Anonymous Benchmarking</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> See how professionals with similar backgrounds navigated career decisions. Compare your choices, regret levels, and outcomes against anonymized peers.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Set your profile (role, industry, experience). The system matches you with similar users and aggregates anonymized statistics on their decisions, regret scores, and outcomes.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/peers/register?user_id=...&amp;role=...&amp;industry=...<br>
+                            <span style="color:#22c55e;">GET</span> /api/peers/comparison/{user_id}
+                        </div>
+                        <button onclick="showTab('peer-insights')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Find Peers</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Frameworks — Decision Rubrics</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Six structured decision frameworks: Job Offer Evaluator, BATNA Analyzer, Career Pivot Scorecard, Promotion Readiness, Startup Risk Evaluator, and Remote Work Fit.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Select a framework, rate dimensions on sliders (1-5), and get an AI-generated analysis with score percentage, strengths, concerns, and a recommendation. Results are stored in your history for future reference.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">GET</span> /api/frameworks/list &rarr; available frameworks<br>
+                            <span style="color:#22c55e;">POST</span> /api/frameworks/quick-score &rarr; score dimensions<br>
+                            <span style="color:#22c55e;">GET</span> /api/frameworks/history/{user_id}
+                        </div>
+                        <button onclick="showTab('frameworks')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Use Frameworks</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Timeline — Career Milestones</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Build a visual timeline of your career milestones — decisions made, roles changed, skills acquired, achievements unlocked. Generates progress reports.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Add milestones with type (decision, achievement, role change, salary change, skill, goal). The system renders a vertical timeline and calculates velocity metrics for your progress report.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/timeline/milestone &rarr; add milestone<br>
+                            <span style="color:#22c55e;">GET</span> /api/timeline/{user_id} &rarr; get timeline<br>
+                            <span style="color:#22c55e;">GET</span> /api/timeline/report/{user_id} &rarr; progress report
+                        </div>
+                        <button onclick="showTab('timeline')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Build Timeline</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Smart Goals — SMART Tracker</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Create SMART goals (Specific, Measurable, Achievable, Relevant, Time-bound). The AI auto-decomposes goals into sub-tasks, tracks progress, and generates weekly accountability reports.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Enter a goal title as a category and deadline. The AI generates 3-7 actionable sub-tasks. Check in regularly to update progress. The system detects if you're on track or behind schedule.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/goals/create &rarr; create SMART goal<br>
+                            <span style="color:#22c55e;">GET</span> /api/goals/{user_id} &rarr; list active goals<br>
+                            <span style="color:#22c55e;">POST</span> /api/goals/checkin &rarr; progress check-in<br>
+                            <span style="color:#22c55e;">GET</span> /api/goals/accountability/{user_id} &rarr; weekly report
+                        </div>
+                        <button onclick="showTab('smart-goals')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Set Goals</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Reversal Analyzer</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> If you regret a career decision, this tool assesses reversibility. Get a reversibility score, cost breakdown, optimal timing window, a step-by-step roadmap, and alternative partial corrections.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Enter the decision, how long ago it was made, and your regret level (0-100). The AI calculates reversibility based on decision type, time elapsed, and market conditions. Returns financial/career costs and a concrete action plan.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">POST</span> /api/reversal/analyze?decision_description=...<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&amp;decision_type=job_change&amp;months_since_decision=3<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&amp;current_regret_score=60
+                        </div>
+                        <button onclick="showTab('reversal')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Analyze Reversal</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">Culture Lens — Cross-Country Comparison</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">What it does:</strong> Compare work cultures between countries using Hofstede dimensions (individualism, power distance, uncertainty avoidance). Includes salary PPP calculator.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">How it works:</strong> Select two countries to see side-by-side cultural dimension scores, career norms (resume gaps, career switching, work hours, referrals), and practical differences. The PPP calculator adjusts salaries for purchasing power parity.</p>
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.8rem;background:var(--bg-elevated);border-radius:6px;font-family:monospace;font-size:0.75rem;">
+                            <span style="color:#22c55e;">GET</span> /api/culture/compare/{country_a}/{country_b}<br>
+                            <span style="color:#22c55e;">POST</span> /api/culture/adjust-salary &rarr; PPP conversion<br>
+                            <span style="color:#22c55e;">GET</span> /api/culture/countries &rarr; supported countries
+                        </div>
+                        <button onclick="showTab('culture')" style="margin-top:0.75rem;padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Compare Cultures</button>
+                    </div>
+                </div>
+
+                <!-- OPERATIONS -->
+                <div style="font-size:0.7rem;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin:1.5rem 0 0.75rem;padding-left:0.25rem;">Operations</div>
+
+                <div class="card" style="margin-bottom:0.75rem;">
+                    <div class="card-header"><div class="card-title">System Status, Calendar, Integrations</div></div>
+                    <div class="card-body" style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">
+                        <p><strong style="color:var(--text-primary);">System Status</strong> — Real-time server health monitoring: CPU, memory, request latency, error rates, and API call logs. Powered by <code style="padding:0.1rem 0.3rem;background:var(--bg-elevated);border-radius:3px;font-size:0.75rem;">/api/health</code> and <code style="padding:0.1rem 0.3rem;background:var(--bg-elevated);border-radius:3px;font-size:0.75rem;">/api/monitoring</code>.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">Calendar</strong> — Track decision deadlines, career events, and reminders. Add events to stay organized around career transitions.</p>
+                        <p style="margin-top:0.5rem;"><strong style="color:var(--text-primary);">Integrations</strong> — Connect external tools via API keys and webhooks. Supports Slack notifications, calendar sync, and data export.</p>
+                        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                            <button onclick="showTab('monitoring')" style="padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">System Status</button>
+                            <button onclick="showTab('calendar')" style="padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Calendar</button>
+                            <button onclick="showTab('integrations')" style="padding:0.5rem 1.25rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:500;">Integrations</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ===================== END NEW FEATURES ===================== -->
 
         <!-- Check-in Modal -->
         <div id="checkInModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;">
@@ -8384,6 +9126,523 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
         
         initPhase3();
 
+        // ==================== NEW FEATURE FUNCTIONS ====================
+
+        // --- Scenario Builder ---
+        let scenarioIds = [];
+        async function runScenario() {
+            const desc = document.getElementById('scenarioInput').value.trim();
+            if (!desc) return alert('Please describe a scenario');
+            document.getElementById('scenarioResults').innerHTML = '<div class="empty-state">Running Monte Carlo simulation...</div>';
+            try {
+                const res = await fetch(`/api/scenario/create?description=${encodeURIComponent(desc)}&user_id=${userId}`, {
+                    method: 'POST', headers: {'Authorization': `Bearer ${token}`}
+                });
+                const data = await res.json();
+                scenarioIds.push(data.scenario_id);
+                if (scenarioIds.length >= 2) document.getElementById('compareBtn').style.display = 'inline-flex';
+                const sim = data.simulation || {};
+                const salary = sim.salary_projections || {};
+                const sat = sim.satisfaction_projections || {};
+                document.getElementById('scenarioResults').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#10b981;">$${(salary.median/1000).toFixed(0)}k</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Median Salary</div>
+                        </div>
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#f59e0b;">${(sat.median||0).toFixed(0)}/100</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Satisfaction</div>
+                        </div>
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#ef4444;">${(sim.regret_projections?.median||0).toFixed(0)}%</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Regret Risk</div>
+                        </div>
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#8b5cf6;">${data.scenario_type}</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">Type</div>
+                        </div>
+                    </div>
+                    <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;">
+                        <div style="font-weight:600;margin-bottom:0.5rem;">Salary Range (${sim.iterations || 500} simulations)</div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-secondary);">
+                            <span>P10: $${(salary.p10/1000).toFixed(0)}k</span>
+                            <span>P50: $${(salary.median/1000).toFixed(0)}k</span>
+                            <span>P90: $${(salary.p90/1000).toFixed(0)}k</span>
+                        </div>
+                        <div style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;margin-top:0.5rem;overflow:hidden;">
+                            <div style="height:100%;width:${Math.min(100,(salary.median/200000)*100)}%;background:linear-gradient(90deg,#10b981,#06b6d4);border-radius:4px;"></div>
+                        </div>
+                    </div>`;
+                document.getElementById('scenarioInput').value = '';
+            } catch(e) { document.getElementById('scenarioResults').innerHTML = `<div class="empty-state" style="color:#ef4444;">Error: ${e.message}</div>`; }
+        }
+
+        // --- Career Feed ---
+        async function loadCareerFeed() {
+            try {
+                const res = await fetch(`/api/feed/${userId}?count=10`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                const items = await res.json();
+                if (!items.length) { document.getElementById('careerFeedContent').innerHTML = '<div class="empty-state">Set your preferences to get personalized content</div>'; return; }
+                const typeIcons = {salary_trend:'',skill_gap:'',industry_news:'',opportunity:'',peer_insight:'',market_shift:'',certification:''};
+                document.getElementById('careerFeedContent').innerHTML = items.map(item => `
+                    <div style="padding:1rem;border:1px solid var(--border);border-radius:10px;margin-bottom:0.75rem;background:var(--bg-elevated);transition:all 0.2s;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div style="flex:1;">
+                                <div style="font-size:0.7rem;color:var(--accent);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">${(item.type||'').replace(/_/g,' ')}</div>
+                                <div style="font-weight:600;margin-bottom:0.25rem;">${item.title}</div>
+                                <div style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">${item.summary || item.description || ''}</div>
+                            </div>
+                            <div style="display:flex;gap:0.25rem;margin-left:0.5rem;">
+                                <button onclick="bookmarkFeed('${item.id}')" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:4px;cursor:pointer;font-size:0.7rem;color:var(--text-muted);padding:0.2rem 0.4rem;" title="Bookmark">Save</button>
+                                <button onclick="dismissFeed('${item.id}')" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:4px;cursor:pointer;font-size:0.7rem;color:var(--text-muted);padding:0.2rem 0.4rem;" title="Dismiss">x</button>
+                            </div>
+                        </div>
+                        ${item.relevance_score ? `<div style="margin-top:0.5rem;"><div style="height:3px;background:rgba(255,255,255,0.1);border-radius:2px;"><div style="height:100%;width:${item.relevance_score}%;background:var(--accent);border-radius:2px;"></div></div><span style="font-size:0.65rem;color:var(--text-muted);">${item.relevance_score}% relevant</span></div>` : ''}
+                    </div>`).join('');
+            } catch(e) { document.getElementById('careerFeedContent').innerHTML = '<div class="empty-state">Set preferences first</div>'; }
+        }
+        async function bookmarkFeed(itemId) {
+            await fetch(`/api/feed/bookmark/${userId}/${itemId}`, {method:'POST', headers:{'Authorization':`Bearer ${token}`}});
+        }
+        async function dismissFeed(itemId) {
+            await fetch(`/api/feed/dismiss/${userId}/${itemId}`, {method:'POST', headers:{'Authorization':`Bearer ${token}`}});
+            loadCareerFeed();
+        }
+        function showFeedPreferences() {
+            alert('Set your role, industry, and skills in your profile to personalize the feed.');
+        }
+
+        // --- Peer Comparison ---
+        async function loadPeerComparison() {
+            const role = document.getElementById('peerRole').value;
+            const industry = document.getElementById('peerIndustry').value;
+            const exp = document.getElementById('peerExperience').value;
+            document.getElementById('peerResults').innerHTML = '<div class="empty-state">Finding your peers...</div>';
+            try {
+                await fetch(`/api/peers/register?user_id=${userId}&role=${role}&industry=${industry}&experience_years=${exp}`, {
+                    method:'POST', headers:{'Authorization':`Bearer ${token}`}
+                });
+                const res = await fetch(`/api/peers/comparison/${userId}`, {
+                    headers:{'Authorization':`Bearer ${token}`}
+                });
+                const data = await res.json();
+                if (data.error) { document.getElementById('peerResults').innerHTML = `<div class="empty-state">${data.error}</div>`; return; }
+                const stats = data.outcome_stats || {};
+                document.getElementById('peerResults').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:2rem;font-weight:700;color:#06b6d4;">${data.peer_group_size}</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">Similar Peers Found</div>
+                        </div>
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:2rem;font-weight:700;color:#10b981;">${stats.avg_satisfaction?.toFixed(0) || '—'}</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">Avg Satisfaction</div>
+                        </div>
+                        <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                            <div style="font-size:2rem;font-weight:700;color:#f59e0b;">${stats.avg_salary_change?.toFixed(1) || '—'}%</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">Avg Salary Change</div>
+                        </div>
+                    </div>
+                    ${data.insights ? `<div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;margin-bottom:1rem;">
+                        <div style="font-weight:600;margin-bottom:0.5rem;">Peer Insights</div>
+                        ${data.insights.map(i => `<div style="padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--text-secondary);">• ${i}</div>`).join('')}
+                    </div>` : ''}
+                    ${data.most_common_decisions ? `<div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;">
+                        <div style="font-weight:600;margin-bottom:0.5rem;">Most Common Decisions</div>
+                        ${data.most_common_decisions.map(d => `
+                            <div style="display:flex;justify-content:space-between;padding:0.4rem 0;font-size:0.85rem;">
+                                <span>${d[0].replace(/_/g,' ')}</span>
+                                <span style="color:var(--accent);font-weight:600;">${d[1]} peers</span>
+                            </div>`).join('')}
+                    </div>` : ''}`;
+            } catch(e) { document.getElementById('peerResults').innerHTML = `<div class="empty-state" style="color:#ef4444;">Error: ${e.message}</div>`; }
+        }
+
+        // --- Decision Frameworks ---
+        let activeFrameworkScores = {};
+        async function loadFrameworks() {
+            try {
+                const res = await fetch('/api/frameworks/list');
+                const frameworks = await res.json();
+                document.getElementById('frameworkList').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+                        ${frameworks.map(f => `
+                            <div style="padding:1.25rem;background:var(--bg-elevated);border-radius:12px;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;" 
+                                 onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"
+                                 onclick="startFramework('${f.type}', '${f.name}', ${JSON.stringify(f.dimensions).replace(/"/g,'&quot;')})">
+                                <div style="font-weight:700;margin-bottom:0.5rem;">${f.name}</div>
+                                <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem;">${f.description}</div>
+                                <div style="font-size:0.7rem;color:var(--accent);">${f.dimension_count} dimensions</div>
+                            </div>`).join('')}
+                    </div>`;
+            } catch(e) {}
+        }
+
+        function startFramework(type, name, dimensions) {
+            activeFrameworkScores = {type, dimensions: {}};
+            document.getElementById('frameworkWorkspace').style.display = 'block';
+            document.getElementById('activeFrameworkTitle').textContent = name;
+            const dims = typeof dimensions === 'string' ? JSON.parse(dimensions) : dimensions;
+            document.getElementById('frameworkWorkspaceBody').innerHTML = `
+                <div style="display:grid;gap:1rem;">
+                    ${dims.map(d => `
+                        <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem;background:var(--bg-elevated);border-radius:8px;">
+                            <span style="flex:1;font-size:0.9rem;font-weight:500;">${d}</span>
+                            <input type="range" min="1" max="10" value="5" id="fw-${d.replace(/[^a-zA-Z]/g,'')}" 
+                                   oninput="this.nextElementSibling.textContent=this.value; activeFrameworkScores.dimensions['${d}']=parseInt(this.value)"
+                                   style="flex:1;">
+                            <span style="min-width:24px;text-align:center;font-weight:700;color:var(--accent);">5</span>
+                        </div>`).join('')}
+                    <button onclick="submitFramework()" style="padding:0.75rem 2rem;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-weight:600;cursor:pointer;margin-top:0.5rem;transition:all 0.25s;">Get Analysis</button>
+                </div>`;
+        }
+
+        async function submitFramework() {
+            const scores = activeFrameworkScores.dimensions;
+            try {
+                const res = await fetch(`/api/frameworks/quick-score?user_id=${userId}&framework_type=${activeFrameworkScores.type}`, {
+                    method:'POST', headers:{'Authorization':`Bearer ${token}`, 'Content-Type':'application/json'},
+                    body: JSON.stringify(scores)
+                });
+                const data = await res.json();
+                document.getElementById('frameworkResultCard').style.display = 'block';
+                const verdictColors = {};
+                document.getElementById('frameworkResult').innerHTML = `
+                    <div style="text-align:center;padding:1.5rem;background:var(--bg-elevated);border-radius:12px;margin-bottom:1rem;">
+                        <div style="font-size:1.75rem;font-weight:700;">${(data.score_pct||0).toFixed(0)}%</div>
+                        <div style="font-size:0.85rem;color:var(--text-secondary);">Overall Score</div>
+                    </div>
+                    ${data.recommendation ? `<div style="padding:1rem;background:rgba(99, 102, 241, 0.1);border:1px solid rgba(99, 102, 241, 0.3);border-radius:10px;margin-bottom:1rem;">
+                        <div style="font-weight:600;margin-bottom:0.25rem;">Recommendation</div>
+                        <div style="font-size:0.85rem;color:var(--text-secondary);">${data.recommendation}</div>
+                    </div>` : ''}
+                    ${data.strengths?.length ? `<div style="margin-bottom:0.75rem;"><span style="font-weight:600;color:#10b981;">Strengths:</span> ${data.strengths.join(', ')}</div>` : ''}
+                    ${data.concerns?.length ? `<div style="margin-bottom:0.75rem;"><span style="font-weight:600;color:#f59e0b;">Concerns:</span> ${data.concerns.join(', ')}</div>` : ''}
+                    ${data.action_items?.length ? `<div><span style="font-weight:600;color:#8b5cf6;">Action Items:</span><ul style="margin-top:0.25rem;padding-left:1.25rem;font-size:0.85rem;color:var(--text-secondary);">${data.action_items.map(a=>`<li>${a}</li>`).join('')}</ul></div>` : ''}`;
+            } catch(e) { alert('Error: ' + e.message); }
+        }
+
+        function resetFramework() {
+            document.getElementById('frameworkWorkspace').style.display = 'none';
+            document.getElementById('frameworkResultCard').style.display = 'none';
+            activeFrameworkScores = {};
+        }
+
+        // --- Career Timeline ---
+        async function addMilestone() {
+            const title = document.getElementById('milestoneTitle').value.trim();
+            const type = document.getElementById('milestoneType').value;
+            const date = document.getElementById('milestoneDate').value;
+            const desc = document.getElementById('milestoneDesc').value.trim();
+            if (!title) return alert('Please enter a milestone title');
+            try {
+                await fetch(`/api/timeline/milestone?user_id=${userId}&milestone_type=${type}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(desc)}${date ? '&date='+date : ''}`, {
+                    method:'POST', headers:{'Authorization':`Bearer ${token}`}
+                });
+                document.getElementById('milestoneTitle').value = '';
+                document.getElementById('milestoneDesc').value = '';
+                loadTimeline();
+            } catch(e) { alert('Error adding milestone'); }
+        }
+
+        async function loadTimeline() {
+            try {
+                const res = await fetch(`/api/timeline/${userId}`, {headers:{'Authorization':`Bearer ${token}`}});
+                const data = await res.json();
+                const milestones = data.milestones || [];
+                const typeEmoji = {decision:'',achievement:'',role_change:'',salary_change:'',skill:'',goal_completion:'',outcome:''};
+                if (!milestones.length) return;
+                document.getElementById('timelineContent').innerHTML = `
+                    <div style="position:relative;padding-left:2rem;">
+                        <div style="position:absolute;left:0.5rem;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--accent),rgba(255,255,255,0.1));"></div>
+                        ${milestones.map(m => `
+                            <div style="position:relative;padding:0.75rem 0 0.75rem 1.5rem;margin-bottom:0.5rem;">
+                                <div style="position:absolute;left:-0.45rem;top:1rem;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg-primary);"></div>
+                                <div style="font-size:0.7rem;color:var(--text-muted);">${m.date ? new Date(m.date).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : ''}</div>
+                                <div style="font-weight:600;">${m.title}</div>
+                                ${m.description ? `<div style="font-size:0.8rem;color:var(--text-secondary);">${m.description}</div>` : ''}
+                            </div>`).join('')}
+                    </div>`;
+                // Load progress report
+                const rpRes = await fetch(`/api/timeline/report/${userId}`, {headers:{'Authorization':`Bearer ${token}`}});
+                const report = await rpRes.json();
+                if (report.total_milestones > 0) {
+                    document.getElementById('timelineReport').innerHTML = `
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div style="font-size:1.5rem;font-weight:700;color:var(--accent);">${report.total_milestones}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted);">Total Milestones</div>
+                            </div>
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div style="font-size:1.5rem;font-weight:700;color:#10b981;">${report.satisfaction_trend || '—'}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted);">Satisfaction Trend</div>
+                            </div>
+                            <div style="padding:1rem;background:var(--bg-elevated);border-radius:10px;text-align:center;">
+                                <div style="font-size:1.5rem;font-weight:700;color:#f59e0b;">${report.career_velocity || '—'}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted);">Career Velocity</div>
+                            </div>
+                        </div>`;
+                }
+            } catch(e) {}
+        }
+
+        // --- Smart Goals ---
+        async function createSmartGoal() {
+            const title = document.getElementById('smartGoalTitle').value.trim();
+            const category = document.getElementById('smartGoalCategory').value;
+            const desc = document.getElementById('smartGoalDesc').value.trim();
+            const priority = document.getElementById('smartGoalPriority').value;
+            const deadline = document.getElementById('smartGoalDeadline').value;
+            if (!title) return alert('Please enter a goal title');
+            try {
+                const params = new URLSearchParams({user_id: userId, title, description: desc || title, category, priority, auto_decompose: 'true'});
+                if (deadline) params.append('target_date', deadline);
+                const res = await fetch(`/api/goals/create?${params}`, {
+                    method:'POST', headers:{'Authorization':`Bearer ${token}`}
+                });
+                const data = await res.json();
+                document.getElementById('smartGoalTitle').value = '';
+                document.getElementById('smartGoalDesc').value = '';
+                loadSmartGoals();
+            } catch(e) { alert('Error creating goal'); }
+        }
+
+        async function loadSmartGoals() {
+            try {
+                const res = await fetch(`/api/goals/${userId}`, {headers:{'Authorization':`Bearer ${token}`}});
+                const goals = await res.json();
+                if (!goals.length) { document.getElementById('smartGoalsList').innerHTML = '<div class="empty-state">Create your first SMART goal above</div>'; return; }
+                const statusColors = {active:'#10b981',completed:'#06b6d4',paused:'#f59e0b',overdue:'#ef4444',abandoned:'#6b7280'};
+                document.getElementById('smartGoalsList').innerHTML = goals.map(g => `
+                    <div style="padding:1rem;border:1px solid var(--border);border-radius:10px;margin-bottom:0.75rem;background:var(--bg-elevated);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                            <div style="font-weight:600;">${g.title}</div>
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <span style="font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:4px;background:${statusColors[g.status]||'#6b7280'}22;color:${statusColors[g.status]||'#6b7280'};font-weight:600;">${g.status.toUpperCase()}</span>
+                                <span style="font-size:0.7rem;color:${g.on_track ? '#10b981' : '#ef4444'};">${g.on_track ? 'On Track' : 'Behind'}</span>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                            <div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
+                                <div style="height:100%;width:${g.progress_pct}%;background:linear-gradient(90deg,#10b981,#06b6d4);border-radius:4px;transition:width 0.3s;"></div>
+                            </div>
+                            <span style="font-size:0.85rem;font-weight:700;color:var(--accent);">${g.progress_pct.toFixed(0)}%</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-muted);">
+                            <span>${g.sub_tasks_completed}/${g.sub_tasks_total} tasks</span>
+                            <span>${g.days_remaining} days left</span>
+                            <span>${g.check_ins} check-ins</span>
+                        </div>
+                    </div>`).join('');
+            } catch(e) {}
+        }
+
+        async function loadAccountabilityReport() {
+            try {
+                const res = await fetch(`/api/goals/accountability/${userId}`, {headers:{'Authorization':`Bearer ${token}`}});
+                const data = await res.json();
+                document.getElementById('accountabilityReportCard').style.display = 'block';
+                const s = data.summary || {};
+                document.getElementById('accountabilityReport').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;margin-bottom:1rem;">
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;text-align:center;">
+                            <div style="font-size:1.25rem;font-weight:700;">${s.total_active||0}</div>
+                            <div style="font-size:0.65rem;color:var(--text-muted);">Active</div>
+                        </div>
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;text-align:center;">
+                            <div style="font-size:1.25rem;font-weight:700;color:#10b981;">${s.on_track||0}</div>
+                            <div style="font-size:0.65rem;color:var(--text-muted);">On Track</div>
+                        </div>
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;text-align:center;">
+                            <div style="font-size:1.25rem;font-weight:700;color:#f59e0b;">${s.behind||0}</div>
+                            <div style="font-size:0.65rem;color:var(--text-muted);">Behind</div>
+                        </div>
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;text-align:center;">
+                            <div style="font-size:1.25rem;font-weight:700;color:#ef4444;">${s.overdue||0}</div>
+                            <div style="font-size:0.65rem;color:var(--text-muted);">Overdue</div>
+                        </div>
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;text-align:center;">
+                            <div style="font-size:1.25rem;font-weight:700;color:#06b6d4;">${s.completed_this_week||0}</div>
+                            <div style="font-size:0.65rem;color:var(--text-muted);">Done This Week</div>
+                        </div>
+                    </div>
+                    <div style="padding:1rem;background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.1));border:1px solid rgba(99,102,241,0.2);border-radius:10px;">
+                        <div style="font-weight:600;margin-bottom:0.25rem;">Health: ${data.overall_health?.replace(/_/g,' ').toUpperCase() || '—'}</div>
+                        <div style="font-size:0.85rem;color:var(--text-secondary);">${data.motivation || ''}</div>
+                    </div>`;
+            } catch(e) {}
+        }
+
+        // --- Reversal Analyzer ---
+        async function analyzeReversal() {
+            const desc = document.getElementById('reversalDecision').value.trim();
+            const type = document.getElementById('reversalType').value;
+            const months = document.getElementById('reversalMonths').value;
+            const regret = document.getElementById('reversalRegret').value;
+            if (!desc) return alert('Please describe the decision');
+            document.getElementById('reversalResults').innerHTML = '<div class="empty-state">Analyzing reversibility...</div>';
+            try {
+                const params = new URLSearchParams({user_id: userId, decision_id: 'rev_'+Date.now(), decision_description: desc, decision_type: type, months_since_decision: months, current_regret_score: regret});
+                const res = await fetch(`/api/reversal/analyze?${params}`, {
+                    method:'POST', headers:{'Authorization':`Bearer ${token}`}
+                });
+                const data = await res.json();
+                const revColors = {fully_reversible:'#10b981',partially_reversible:'#f59e0b',difficult_to_reverse:'#f97316',irreversible:'#ef4444'};
+                const sevColors = {low:'#10b981',medium:'#f59e0b',high:'#ef4444'};
+                document.getElementById('reversalResults').innerHTML = `
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+                        <div style="padding:1.25rem;background:var(--bg-elevated);border-radius:12px;text-align:center;border:2px solid ${revColors[data.reversibility]||'#6b7280'};">
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Reversibility</div>
+                            <div style="font-size:0.95rem;font-weight:700;color:${revColors[data.reversibility]||'#6b7280'};">${(data.reversibility||'').replace(/_/g,' ').toUpperCase()}</div>
+                        </div>
+                        <div style="padding:1.25rem;background:var(--bg-elevated);border-radius:12px;text-align:center;">
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Confidence</div>
+                            <div style="font-size:1.25rem;font-weight:700;color:var(--accent);">${((data.confidence||0)*100).toFixed(0)}%</div>
+                        </div>
+                        <div style="padding:1.25rem;background:var(--bg-elevated);border-radius:12px;text-align:center;">
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Regret Score</div>
+                            <div style="font-size:1.25rem;font-weight:700;color:${data.regret_score > 60 ? '#ef4444' : '#f59e0b'};">${data.regret_score}/100</div>
+                        </div>
+                    </div>
+                    <div style="padding:1rem;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:10px;margin-bottom:1rem;">
+                        <div style="font-weight:600;margin-bottom:0.5rem;">Recommendation</div>
+                        <div style="font-size:0.85rem;color:var(--text-secondary);line-height:1.6;">${data.recommendation}</div>
+                    </div>
+                    <div style="margin-bottom:1rem;">
+                        <div style="font-weight:600;margin-bottom:0.75rem;">Timing</div>
+                        <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;font-size:0.85rem;color:var(--text-secondary);">${data.optimal_timing}</div>
+                    </div>
+                    <div style="margin-bottom:1rem;">
+                        <div style="font-weight:600;margin-bottom:0.75rem;">Costs of Reversal</div>
+                        ${(data.costs||[]).map(c => `
+                            <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;margin-bottom:0.5rem;">
+                                <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;">
+                                    <span style="font-weight:500;">${c.type.replace(/_/g,' ').toUpperCase()}</span>
+                                    <span style="font-size:0.75rem;padding:0.15rem 0.5rem;border-radius:4px;background:${sevColors[c.severity]||'#6b7280'}22;color:${sevColors[c.severity]||'#6b7280'};">${c.severity.toUpperCase()}</span>
+                                </div>
+                                <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.25rem;">${c.description}</div>
+                                ${c.mitigation ? `<div style="font-size:0.75rem;color:#10b981;">✅ Mitigation: ${c.mitigation}</div>` : ''}
+                            </div>`).join('')}
+                    </div>
+                    <div style="margin-bottom:1rem;">
+                        <div style="font-weight:600;margin-bottom:0.75rem;">Reversal Roadmap</div>
+                        ${(data.roadmap||[]).map(s => `
+                            <div style="display:flex;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border);">
+                                <div style="min-width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--bg-primary);">${s.step}</div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:500;font-size:0.85rem;">${s.action}</div>
+                                    <div style="font-size:0.75rem;color:var(--text-muted);">${s.timeline} · Difficulty: ${s.difficulty}</div>
+                                </div>
+                            </div>`).join('')}
+                    </div>
+                    ${data.alternatives?.length ? `<div>
+                        <div style="font-weight:600;margin-bottom:0.75rem;">Alternatives to Full Reversal</div>
+                        ${data.alternatives.map(a => `<div style="padding:0.5rem 0.75rem;background:var(--bg-elevated);border-radius:6px;margin-bottom:0.4rem;font-size:0.85rem;color:var(--text-secondary);">→ ${a}</div>`).join('')}
+                    </div>` : ''}`;
+            } catch(e) { document.getElementById('reversalResults').innerHTML = `<div class="empty-state" style="color:#ef4444;">Error: ${e.message}</div>`; }
+        }
+
+        // --- Culture Lens ---
+        async function compareCultures() {
+            const a = document.getElementById('cultureCountryA').value;
+            const b = document.getElementById('cultureCountryB').value;
+            document.getElementById('cultureResults').innerHTML = '<div class="empty-state">Comparing cultures...</div>';
+            try {
+                const res = await fetch(`/api/culture/compare/${a}/${b}`);
+                const data = await res.json();
+                const dims = data.dimensions || {};
+                document.getElementById('cultureResults').innerHTML = `
+                    <div style="margin-bottom:1.5rem;">
+                        <div style="font-weight:600;margin-bottom:1rem;">Cultural Dimensions: ${data.country_a?.name} vs ${data.country_b?.name}</div>
+                        ${Object.entries(dims).map(([dim, info]) => {
+                            const valA = info[data.country_a?.name] || 50;
+                            const valB = info[data.country_b?.name] || 50;
+                            return `<div style="margin-bottom:1rem;padding:0.75rem;background:var(--bg-elevated);border-radius:8px;">
+                                <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;">
+                                    <span style="font-weight:500;font-size:0.85rem;">${dim.replace(/_/g,' ').replace(/\\b\\w/g,l=>l.toUpperCase())}</span>
+                                    <span style="font-size:0.75rem;color:var(--text-muted);">Δ ${info.difference}</span>
+                                </div>
+                                <div style="display:flex;gap:0.5rem;align-items:center;">
+                                    <span style="font-size:0.75rem;min-width:24px;">${valA}</span>
+                                    <div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;position:relative;overflow:hidden;">
+                                        <div style="position:absolute;height:100%;width:${valA}%;background:#06b6d4;border-radius:4px;opacity:0.8;"></div>
+                                        <div style="position:absolute;height:100%;width:${valB}%;background:#f59e0b;border-radius:4px;opacity:0.6;"></div>
+                                    </div>
+                                    <span style="font-size:0.75rem;min-width:24px;">${valB}</span>
+                                </div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;display:flex;gap:1rem;">
+                                    <span style="font-size:0.7rem;color:#06b6d4;">${data.country_a?.name}</span><span style="font-size:0.7rem;margin-left:1rem;color:#f59e0b;">${data.country_b?.name}</span>
+                                </div>
+                                ${info.insight ? `<div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.4rem;font-style:italic;">${info.insight}</div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    ${data.career_norm_differences?.length ? `<div>
+                        <div style="font-weight:600;margin-bottom:0.75rem;">Career Norm Differences</div>
+                        ${data.career_norm_differences.map(d => `
+                            <div style="padding:0.75rem;background:var(--bg-elevated);border-radius:8px;margin-bottom:0.5rem;">
+                                <div style="font-weight:500;font-size:0.85rem;margin-bottom:0.5rem;">${d.aspect}</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.8rem;">
+                                    <div style="padding:0.5rem;background:rgba(6,182,212,0.1);border-radius:6px;">
+                                        <div style="font-size:0.65rem;color:#06b6d4;margin-bottom:0.2rem;">${data.country_a?.name}</div>
+                                        ${d[data.country_a?.name] || ''}
+                                    </div>
+                                    <div style="padding:0.5rem;background:rgba(245,158,11,0.1);border-radius:6px;">
+                                        <div style="font-size:0.65rem;color:#f59e0b;margin-bottom:0.2rem;">${data.country_b?.name}</div>
+                                        ${d[data.country_b?.name] || ''}
+                                    </div>
+                                </div>
+                            </div>`).join('')}
+                    </div>` : ''}
+                    <div style="margin-top:1rem;padding:0.75rem;background:var(--bg-elevated);border-radius:8px;display:flex;justify-content:space-around;font-size:0.85rem;">
+                        <span>Work hours diff: <strong>${data.work_hours_diff || 0}h/wk</strong></span>
+                        <span>Vacation diff: <strong>${data.vacation_days_diff || 0} days</strong></span>
+                    </div>`;
+            } catch(e) { document.getElementById('cultureResults').innerHTML = `<div class="empty-state" style="color:#ef4444;">Error: ${e.message}</div>`; }
+        }
+
+        async function calculatePPP() {
+            const salary = document.getElementById('pppSalary').value;
+            const from = document.getElementById('pppFrom').value;
+            const to = document.getElementById('pppTo').value;
+            try {
+                const res = await fetch(`/api/culture/adjust-salary?salary_usd=${salary}&from_country=${from}&to_country=${to}`, {method:'POST'});
+                const data = await res.json();
+                document.getElementById('pppResult').innerHTML = `
+                    <div style="padding:1.25rem;background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(6,182,212,0.1));border:1px solid rgba(16,185,129,0.3);border-radius:12px;">
+                        <div style="font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:0.75rem;color:#10b981;">
+                            $${Number(salary).toLocaleString()} → $${Math.round(data.ppp_adjusted).toLocaleString()} PPP
+                        </div>
+                        <div style="text-align:center;font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.purchasing_power_note || ''}</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.8rem;">
+                            <div style="padding:0.5rem;background:var(--bg-elevated);border-radius:6px;text-align:center;">
+                                <div style="color:var(--text-muted);">Work Hours</div>
+                                <div style="font-weight:600;">${data.cost_of_living_comparison?.from_work_hours || '—'}h → ${data.cost_of_living_comparison?.to_work_hours || '—'}h</div>
+                            </div>
+                            <div style="padding:0.5rem;background:var(--bg-elevated);border-radius:6px;text-align:center;">
+                                <div style="color:var(--text-muted);">Vacation Days</div>
+                                <div style="font-weight:600;">${data.cost_of_living_comparison?.from_vacation_days || '—'} → ${data.cost_of_living_comparison?.to_vacation_days || '—'}</div>
+                            </div>
+                        </div>
+                    </div>`;
+            } catch(e) { document.getElementById('pppResult').innerHTML = `<div style="color:#ef4444;">Error calculating</div>`; }
+        }
+
+        // Auto-load frameworks when tab is shown
+        const origShowTab = window.showTab;
+        if (typeof origShowTab === 'function') {
+            window.showTab = function(tabId) {
+                origShowTab(tabId);
+                if (tabId === 'frameworks') loadFrameworks();
+                if (tabId === 'smart-goals') loadSmartGoals();
+                if (tabId === 'career-feed') loadCareerFeed();
+                if (tabId === 'timeline') loadTimeline();
+            };
+        }
+
     </script>
     </main>
 </body>
@@ -8398,7 +9657,6 @@ async def interview_next(request: Request):
     difficulty = data.get("difficulty", "junior")
     user_response = data.get("user_response", "")
     history = data.get("history", [])
-    # Normalize role (allow underscores/hyphens from UI)
     normalized_role = role.replace('_', ' ').replace('-', ' ').lower().strip()
 
     role_guidance_map = {
@@ -9691,6 +10949,17 @@ async def logout(request: Request):
             app_state.auth_service.logout(session_token)
 
     return safe_json_response({"success": True, "message": "Logged out successfully"})
+
+@app.get("/api/auth/validate")
+async def validate_token(request: Request):
+    """Validate session token - used by the dashboard auth guard"""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        user_id = app_state.auth_service.validate_session(token) if hasattr(app_state.auth_service, 'validate_session') else None
+        if user_id:
+            return safe_json_response({"valid": True, "user_id": user_id})
+    return safe_json_response({"valid": False})
 
 @app.get("/api/security/audit")
 async def get_security_audit(limit: int = 100, admin_user: str = Depends(get_current_admin)):
@@ -11831,6 +13100,395 @@ async def slack_webhook(request: Request):
     timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
     response = enterprise_integration_service.handle_slack_command(dict(data), signature, timestamp)
     return safe_json_response(response)
+
+@app.post("/api/outcome/register-prediction")
+async def register_prediction(
+    decision_id: str, user_id: str, predicted_regret: float,
+    confidence: float = 0.8, decision_type: str = "career_decision",
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.outcome_tracker.register_prediction(
+        decision_id, user_id, predicted_regret, confidence, decision_type
+    )
+    return safe_json_response(result)
+
+@app.post("/api/outcome/record")
+async def record_outcome(
+    decision_id: str, user_id: str, actual_satisfaction: float,
+    actual_regret: float, salary_delta: float = None,
+    career_growth_score: float = None, work_life_balance: float = None,
+    notes: str = "", current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.outcome_tracker.record_outcome(
+        decision_id, user_id, actual_satisfaction, actual_regret,
+        salary_delta, career_growth_score, work_life_balance, notes
+    )
+    return safe_json_response(result)
+
+@app.get("/api/outcome/pending/{user_id}")
+async def get_pending_follow_ups(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.outcome_tracker.get_pending_follow_ups(user_id))
+
+@app.get("/api/outcome/upcoming/{user_id}")
+async def get_upcoming_follow_ups(user_id: str, days_ahead: int = 14, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.outcome_tracker.get_upcoming_follow_ups(user_id, days_ahead))
+
+@app.get("/api/outcome/calibration/{user_id}")
+async def get_calibration_curve(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.outcome_tracker.get_calibration_curve(user_id))
+
+@app.get("/api/outcome/dashboard/{user_id}")
+async def get_accuracy_dashboard(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.outcome_tracker.get_accuracy_dashboard(user_id))
+
+@app.get("/api/outcome/history/{decision_id}")
+async def get_outcome_history(decision_id: str, current_user: str = Depends(get_current_user)):
+    return safe_json_response(app_state.outcome_tracker.get_outcome_history(decision_id))
+
+@app.get("/api/outcome/retraining-data")
+async def get_retraining_data(current_user: str = Depends(get_current_user)):
+    return safe_json_response(app_state.outcome_tracker.get_retraining_data())
+
+@app.post("/api/scenario/create")
+async def create_scenario(
+    description: str, user_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.scenario_builder.parse_scenario(description, user_id)
+    return safe_json_response(result)
+
+@app.post("/api/scenario/chain")
+async def chain_scenario(
+    parent_id: str, description: str, user_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.scenario_builder.chain_scenario(parent_id, description, user_id)
+    return safe_json_response(result)
+
+@app.post("/api/scenario/compare")
+async def compare_scenarios(
+    scenario_id_a: str, scenario_id_b: str,
+    current_user: str = Depends(get_current_user)
+):
+    result = app_state.scenario_builder.compare_scenarios(scenario_id_a, scenario_id_b)
+    return safe_json_response(result)
+
+@app.get("/api/scenario/list/{user_id}")
+async def list_user_scenarios(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.scenario_builder.get_user_scenarios(user_id))
+
+@app.post("/api/feed/preferences/{user_id}")
+async def set_feed_preferences(user_id: str, request: Request, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    preferences = await request.json()
+    result = app_state.career_feed.set_preferences(user_id, preferences)
+    return safe_json_response(result)
+
+@app.get("/api/feed/{user_id}")
+async def get_career_feed(user_id: str, count: int = 10, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_feed.generate_feed(user_id, count))
+
+@app.post("/api/feed/read/{user_id}/{item_id}")
+async def mark_feed_read(user_id: str, item_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_feed.mark_read(user_id, item_id))
+
+@app.post("/api/feed/bookmark/{user_id}/{item_id}")
+async def toggle_feed_bookmark(user_id: str, item_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_feed.bookmark_item(user_id, item_id))
+
+@app.post("/api/feed/dismiss/{user_id}/{item_id}")
+async def dismiss_feed_item(user_id: str, item_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_feed.dismiss_item(user_id, item_id))
+
+@app.get("/api/feed/bookmarks/{user_id}")
+async def get_feed_bookmarks(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_feed.get_bookmarks(user_id))
+
+@app.get("/api/feed/stats/{user_id}")
+async def get_feed_stats(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_feed.get_feed_stats(user_id))
+
+@app.post("/api/peers/register")
+async def register_peer_profile(
+    user_id: str, role: str, industry: str,
+    experience_years: int, risk_tolerance: str = "medium",
+    location: str = "remote",
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.peer_comparison.register_user_profile(
+        user_id, role, industry, experience_years, risk_tolerance, location
+    )
+    return safe_json_response(result)
+
+@app.get("/api/peers/comparison/{user_id}")
+async def get_peer_comparison(
+    user_id: str, decision_type: str = None,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.peer_comparison.get_peer_comparison(user_id, decision_type))
+
+@app.post("/api/peers/contribute")
+async def contribute_peer_outcome(
+    user_id: str, decision_type: str, satisfaction: float,
+    regret: float, salary_change_pct: float,
+    time_to_satisfaction_months: int = 6,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.peer_comparison.contribute_outcome(
+        user_id, decision_type, satisfaction, regret, salary_change_pct,
+        time_to_satisfaction_months
+    )
+    return safe_json_response(result)
+
+@app.get("/api/peers/distribution/{user_id}/{decision_type}")
+async def get_peer_distribution(
+    user_id: str, decision_type: str,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.peer_comparison.get_decision_distribution(user_id, decision_type))
+
+@app.get("/api/frameworks/list")
+async def list_frameworks():
+    return safe_json_response(app_state.decision_framework.list_frameworks())
+
+@app.post("/api/frameworks/start")
+async def start_framework(
+    user_id: str, framework_type: str,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.decision_framework.start_framework(user_id, framework_type))
+
+@app.post("/api/frameworks/score")
+async def score_framework_dimension(
+    user_id: str, session_id: str, score: float, notes: str = "",
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(
+        app_state.decision_framework.score_dimension(user_id, session_id, score, notes)
+    )
+
+@app.post("/api/frameworks/quick-score")
+async def quick_score_framework(
+    user_id: str, framework_type: str, request: Request,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    scores = await request.json()
+    return safe_json_response(
+        app_state.decision_framework.quick_score(user_id, framework_type, scores)
+    )
+
+@app.get("/api/frameworks/history/{user_id}")
+async def get_framework_history(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.decision_framework.get_user_history(user_id))
+
+@app.post("/api/timeline/milestone")
+async def add_timeline_milestone(
+    user_id: str, milestone_type: str, title: str, description: str,
+    date: str = None, impact_score: float = 0.5,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.career_timeline.add_milestone(
+        user_id, milestone_type, title, description, date, impact_score=impact_score
+    )
+    return safe_json_response(result)
+
+@app.post("/api/timeline/metric-snapshot")
+async def record_metric_snapshot(
+    user_id: str, satisfaction: float = None, salary_index: float = None,
+    skill_count: int = None, decision_quality: float = None,
+    goals_completed: int = None,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.career_timeline.record_metric_snapshot(
+        user_id, satisfaction, salary_index, skill_count,
+        decision_quality, goals_completed
+    )
+    return safe_json_response(result)
+
+@app.get("/api/timeline/{user_id}")
+async def get_career_timeline(
+    user_id: str, start_date: str = None, end_date: str = None,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_timeline.get_timeline(user_id, start_date, end_date))
+
+@app.get("/api/timeline/report/{user_id}")
+async def get_progress_report(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_timeline.get_progress_report(user_id))
+
+@app.get("/api/timeline/export/{user_id}")
+async def export_timeline(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.career_timeline.export_timeline(user_id))
+
+@app.post("/api/goals/create")
+async def create_goal(
+    user_id: str, title: str, description: str, category: str,
+    priority: str = "medium", target_date: str = None,
+    measurable_target: str = "", auto_decompose: bool = True,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.goal_tracking.create_goal(
+        user_id, title, description, category, priority,
+        target_date, measurable_target, auto_decompose=auto_decompose
+    )
+    return safe_json_response(result)
+
+@app.get("/api/goals/{user_id}")
+async def get_user_goals(
+    user_id: str, status: str = None, category: str = None,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.goal_tracking.get_goals(user_id, status, category))
+
+@app.get("/api/goals/{user_id}/{goal_id}")
+async def get_goal_detail(user_id: str, goal_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.goal_tracking.get_goal_detail(user_id, goal_id))
+
+@app.post("/api/goals/subtask/complete")
+async def complete_subtask(
+    user_id: str, goal_id: str, subtask_id: str,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.goal_tracking.complete_subtask(user_id, goal_id, subtask_id))
+
+@app.post("/api/goals/checkin")
+async def goal_checkin(
+    user_id: str, goal_id: str, progress_pct: float,
+    notes: str = "", mood: str = "neutral",
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(
+        app_state.goal_tracking.check_in(user_id, goal_id, progress_pct, notes, mood=mood)
+    )
+
+@app.put("/api/goals/status")
+async def update_goal_status(
+    user_id: str, goal_id: str, status: str,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.goal_tracking.update_goal_status(user_id, goal_id, status))
+
+@app.get("/api/goals/accountability/{user_id}")
+async def get_accountability_report(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.goal_tracking.get_accountability_report(user_id))
+
+@app.get("/api/goals/templates")
+async def get_goal_templates(category: str = None):
+    return safe_json_response(app_state.goal_tracking.get_templates(category))
+
+@app.post("/api/reversal/analyze")
+async def analyze_reversal(
+    user_id: str, decision_id: str, decision_description: str,
+    decision_type: str, months_since_decision: int = 0,
+    current_regret_score: float = 50,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    result = app_state.reversal_analyzer.analyze_reversal(
+        user_id, decision_id, decision_description, decision_type,
+        months_since_decision, current_regret_score
+    )
+    return safe_json_response(result)
+
+@app.get("/api/reversal/history/{user_id}")
+async def get_reversal_history(user_id: str, current_user: str = Depends(get_current_user)):
+    verify_owner(user_id, current_user)
+    return safe_json_response(app_state.reversal_analyzer.get_analysis_history(user_id))
+
+@app.get("/api/culture/countries")
+async def get_supported_countries():
+    return safe_json_response(app_state.multilingual.get_supported_countries())
+
+@app.get("/api/culture/profile/{country_code}")
+async def get_cultural_profile(country_code: str):
+    return safe_json_response(app_state.multilingual.get_cultural_profile(country_code))
+
+@app.post("/api/culture/adapt-advice")
+async def adapt_advice_for_culture(
+    advice: str, country_code: str, decision_type: str = None
+):
+    return safe_json_response(
+        app_state.multilingual.adapt_advice(advice, country_code, decision_type)
+    )
+
+@app.post("/api/culture/adjust-salary")
+async def adjust_salary_ppp(
+    salary_usd: float, from_country: str, to_country: str
+):
+    return safe_json_response(
+        app_state.multilingual.adjust_salary(salary_usd, from_country, to_country)
+    )
+
+@app.post("/api/culture/set-locale")
+async def set_user_locale(
+    user_id: str, country_code: str, preferred_language: str = None,
+    current_user: str = Depends(get_current_user)
+):
+    verify_owner(user_id, current_user)
+    return safe_json_response(
+        app_state.multilingual.set_user_locale(user_id, country_code, preferred_language)
+    )
+
+@app.get("/api/culture/compare/{country_a}/{country_b}")
+async def compare_work_cultures(country_a: str, country_b: str):
+    return safe_json_response(app_state.multilingual.compare_work_cultures(country_a, country_b))
+
+@app.get("/api/culture/detect-language")
+async def detect_language(text: str):
+    lang = app_state.multilingual.detect_language(text)
+    return safe_json_response({"detected_language": lang, "language_name": app_state.multilingual.SUPPORTED_LANGUAGES.get(lang, "Unknown")})
+
+@app.get("/manifest.json")
+async def pwa_manifest():
+    return safe_json_response(app_state.pwa.get_manifest())
+
+@app.get("/sw.js")
+async def service_worker():
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(
+        content=app_state.pwa.get_service_worker_js(),
+        media_type="application/javascript"
+    )
+
+@app.get("/offline.html", response_class=HTMLResponse)
+async def offline_page():
+    return HTMLResponse(content=app_state.pwa.get_offline_html())
+
 
 if __name__ == "__main__":
     import uvicorn

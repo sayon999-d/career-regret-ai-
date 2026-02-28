@@ -84,6 +84,16 @@ from .youtube_recommendation_service import (
     YouTubeRecommendationService, youtube_recommendation_service,
     YouTubeVideo, UserProfile, VideoCategory
 )
+from .outcome_tracker_service import OutcomeTrackerService, outcome_tracker_service
+from .scenario_builder_service import ScenarioBuilderService, scenario_builder_service
+from .career_feed_service import CareerFeedService, career_feed_service
+from .peer_comparison_service import PeerComparisonService, peer_comparison_service
+from .decision_framework_service import DecisionFrameworkService, decision_framework_service
+from .career_timeline_service import CareerTimelineService, career_timeline_service
+from .goal_tracking_service import GoalTrackingService, goal_tracking_service
+from .reversal_analyzer_service import ReversalAnalyzerService, reversal_analyzer_service
+from .multilingual_service import MultilingualService, multilingual_service
+from .pwa_service import PWAService, pwa_service
 
 __all__ = [
     "EnhancedOllamaService", "OllamaService", "OllamaConfig",
@@ -136,5 +146,15 @@ __all__ = [
     "ab_testing_service", "enterprise_integration_service",
     "YouTubeRecommendationService", "youtube_recommendation_service",
     "YouTubeVideo", "UserProfile", "VideoCategory",
-    "LLMProvider"
+    "LLMProvider",
+    "OutcomeTrackerService", "outcome_tracker_service",
+    "ScenarioBuilderService", "scenario_builder_service",
+    "CareerFeedService", "career_feed_service",
+    "PeerComparisonService", "peer_comparison_service",
+    "DecisionFrameworkService", "decision_framework_service",
+    "CareerTimelineService", "career_timeline_service",
+    "GoalTrackingService", "goal_tracking_service",
+    "ReversalAnalyzerService", "reversal_analyzer_service",
+    "MultilingualService", "multilingual_service",
+    "PWAService", "pwa_service"
 ]

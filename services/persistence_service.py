@@ -434,7 +434,8 @@ class PersistenceService:
             conn.commit()
             return deleted
 
+import tempfile
 try:
     persistence_service = PersistenceService()
 except Exception:
-    persistence_service = PersistenceService(db_path="/tmp/learning_data.db")
+    persistence_service = PersistenceService(db_path=os.path.join(tempfile.gettempdir(), "learning_data.db"))

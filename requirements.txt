@@ -32,6 +32,7 @@ aiosqlite>=0.19.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 bcrypt>=4.0.0
+cryptography>=41.0.0
 
 # Caching & Rate Limiting
 redis>=5.0.0
@@ -55,10 +56,17 @@ Pillow>=10.0.0
 PyPDF2>=3.0.0
 psutil
 
+# Media & Speech
 yt-dlp>=2024.06.06
 youtube-transcript-api>=0.6.0
 beautifulsoup4>=4.12.2
 SpeechRecognition>=3.11.0
 pydub
+pyttsx3
+
+# AI/LLM
 openai
-whisper 
+whisper
+
+# WebSockets
+websockets>=12.0
