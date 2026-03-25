@@ -73,3 +73,6 @@ build/
 
 # Local database
 data/*.db
+
+# Local env config
+env.config
