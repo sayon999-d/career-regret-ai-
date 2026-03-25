@@ -50,10 +50,6 @@ class Notification:
 
 
 class PushNotificationService:
-    """
-    Manages push notifications for real-time user engagement
-    """
-
     DEFAULT_PREFERENCES = {
         NotificationType.OPPORTUNITY_ALERT.value: True,
         NotificationType.DECISION_REMINDER.value: True,
@@ -78,7 +74,6 @@ class PushNotificationService:
         auth_key: str,
         preferences: Dict[str, bool] = None
     ) -> Dict[str, Any]:
-        """Register a push subscription for a user"""
         subscription = PushSubscription(
             user_id=user_id,
             endpoint=endpoint,
@@ -97,7 +92,6 @@ class PushNotificationService:
         }
 
     def unsubscribe(self, user_id: str) -> Dict[str, Any]:
-        """Unsubscribe a user from push notifications"""
         if user_id in self.subscriptions:
             self.subscriptions[user_id].is_active = False
             return {"unsubscribed": True, "user_id": user_id}
@@ -108,7 +102,6 @@ class PushNotificationService:
         user_id: str,
         preferences: Dict[str, bool]
     ) -> Dict[str, Any]:
-        """Update notification preferences for a user"""
         if user_id not in self.subscriptions:
             return {"error": "User not subscribed"}
 
@@ -119,7 +112,6 @@ class PushNotificationService:
         }
 
     def get_preferences(self, user_id: str) -> Dict[str, Any]:
-        """Get notification preferences for a user"""
         if user_id not in self.subscriptions:
             return {
                 "subscribed": False,
@@ -142,7 +134,6 @@ class PushNotificationService:
         data: Dict[str, Any] = None,
         priority: NotificationPriority = NotificationPriority.MEDIUM
     ) -> Dict[str, Any]:
-        """Queue a notification for sending"""
         if user_id not in self.subscriptions:
             return {"sent": False, "reason": "User not subscribed"}
 
@@ -185,7 +176,6 @@ class PushNotificationService:
         unread_only: bool = False,
         limit: int = 20
     ) -> List[Dict[str, Any]]:
-        """Get notifications for a user"""
         if user_id not in self.notifications:
             return []
 
@@ -212,7 +202,6 @@ class PushNotificationService:
         } for n in notifications]
 
     def mark_as_read(self, user_id: str, notification_id: str) -> bool:
-        """Mark a notification as read"""
         if user_id not in self.notifications:
             return False
 
@@ -223,7 +212,6 @@ class PushNotificationService:
         return False
 
     def mark_all_read(self, user_id: str) -> int:
-        """Mark all notifications as read"""
         if user_id not in self.notifications:
             return 0
 
@@ -235,7 +223,6 @@ class PushNotificationService:
         return count
 
     def get_unread_count(self, user_id: str) -> int:
-        """Get count of unread notifications"""
         if user_id not in self.notifications:
             return 0
         return len([n for n in self.notifications[user_id] if n.read_at is None])
@@ -247,7 +234,6 @@ class PushNotificationService:
         match_score: float,
         opportunity_id: str
     ):
-        """Send an opportunity alert notification"""
         await self.send_notification(
             user_id=user_id,
             notification_type=NotificationType.OPPORTUNITY_ALERT,
@@ -263,7 +249,6 @@ class PushNotificationService:
         decision_title: str,
         days_pending: int
     ):
-        """Send a reminder about a pending decision"""
         await self.send_notification(
             user_id=user_id,
             notification_type=NotificationType.DECISION_REMINDER,
@@ -279,7 +264,6 @@ class PushNotificationService:
         bias_type: str,
         context: str
     ):
-        """Send a bias detection warning"""
         await self.send_notification(
             user_id=user_id,
             notification_type=NotificationType.BIAS_WARNING,
@@ -296,7 +280,6 @@ class PushNotificationService:
         progress: int,
         milestone: str = None
     ):
-        """Send a goal progress update"""
         body = f"'{goal_title}' is now at {progress}%"
         if milestone:
             body += f" - Milestone reached: {milestone}"
@@ -316,7 +299,6 @@ class PushNotificationService:
         achievement_name: str,
         achievement_description: str
     ):
-        """Send an achievement unlocked notification"""
         await self.send_notification(
             user_id=user_id,
             notification_type=NotificationType.ACHIEVEMENT,

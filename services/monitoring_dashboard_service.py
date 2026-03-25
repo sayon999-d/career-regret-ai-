@@ -39,10 +39,6 @@ class HealthCheck:
 
 
 class MonitoringDashboardService:
-    """
-    Comprehensive system monitoring and health tracking
-    """
-
     def __init__(self):
         self.start_time = datetime.utcnow()
         self.request_count = 0
@@ -61,7 +57,6 @@ class MonitoringDashboardService:
         status_code: int,
         user_id: str = None
     ):
-        """Record an API request"""
         self.request_count += 1
         self.request_latencies.append(latency_ms)
 
@@ -90,7 +85,6 @@ class MonitoringDashboardService:
         stats["last_accessed"] = datetime.utcnow().isoformat()
 
     def get_system_metrics(self) -> Dict[str, Any]:
-        """Get current system resource metrics"""
         cpu_percent = 0.0
         cpu_count = None
         try:
@@ -138,7 +132,6 @@ class MonitoringDashboardService:
         }
 
     def get_application_metrics(self) -> Dict[str, Any]:
-        """Get application-level metrics"""
         uptime = datetime.utcnow() - self.start_time
 
         avg_latency = statistics.mean(self.request_latencies) if self.request_latencies else 0
@@ -177,7 +170,6 @@ class MonitoringDashboardService:
         }
 
     def get_endpoint_metrics(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get per-endpoint performance metrics"""
         endpoints = []
 
         for key, stats in self.endpoint_stats.items():
@@ -200,7 +192,6 @@ class MonitoringDashboardService:
         return endpoints[:limit]
 
     def check_health(self) -> Dict[str, Any]:
-        """Run comprehensive health checks"""
         checks = []
 
         db_check = self._check_database()
@@ -238,14 +229,13 @@ class MonitoringDashboardService:
         }
 
     def _check_database(self) -> HealthCheck:
-        """Check database connectivity"""
         start = time.time()
         try:
             latency = (time.time() - start) * 1000
             return HealthCheck(
                 name="database",
                 status=HealthStatus.HEALTHY,
-                message="SQLite database operational",
+                message="PostgreSQL database operational",
                 latency_ms=latency
             )
         except Exception as e:
@@ -257,7 +247,6 @@ class MonitoringDashboardService:
             )
 
     def _check_ollama(self) -> HealthCheck:
-        """Check Ollama LLM service"""
         start = time.time()
         try:
             import httpx
@@ -287,7 +276,6 @@ class MonitoringDashboardService:
             )
 
     def _check_memory(self) -> HealthCheck:
-        """Check system memory"""
         start = time.time()
         try:
             memory = psutil.virtual_memory()
@@ -323,7 +311,6 @@ class MonitoringDashboardService:
             )
 
     def _check_disk(self) -> HealthCheck:
-        """Check disk space"""
         start = time.time()
         try:
             disk = psutil.disk_usage('/')
@@ -359,7 +346,6 @@ class MonitoringDashboardService:
             )
 
     def _format_uptime(self, delta: timedelta) -> str:
-        """Format uptime as human-readable string"""
         days = delta.days
         hours, remainder = divmod(delta.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
@@ -376,7 +362,6 @@ class MonitoringDashboardService:
         return " ".join(parts)
 
     def get_dashboard_summary(self) -> Dict[str, Any]:
-        """Get complete dashboard summary"""
         health = self.check_health()
         app_metrics = self.get_application_metrics()
         system_metrics = self.get_system_metrics()
@@ -397,7 +382,6 @@ class MonitoringDashboardService:
         message: str,
         source: str = "system"
     ):
-        """Add a system alert"""
         alert = {
             "id": f"alert_{len(self.alerts)+1}_{int(time.time())}",
             "severity": severity,
@@ -413,12 +397,10 @@ class MonitoringDashboardService:
             self.alerts = self.alerts[-50:]
 
     def get_active_alerts(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get active (unacknowledged) alerts"""
         active = [a for a in self.alerts if not a["acknowledged"]]
         return sorted(active, key=lambda x: x["created_at"], reverse=True)[:limit]
 
     def acknowledge_alert(self, alert_id: str) -> bool:
-        """Acknowledge an alert"""
         for alert in self.alerts:
             if alert["id"] == alert_id:
                 alert["acknowledged"] = True
@@ -431,7 +413,6 @@ class MonitoringDashboardService:
         metric_name: str,
         hours: int = 24
     ) -> List[Dict[str, Any]]:
-        """Get historical metrics for graphing"""
         if metric_name not in self.metrics_history:
             return []
 

@@ -18,7 +18,6 @@ class EnterpriseIntegrationService:
         }
 
     async def trigger_webhook(self, user_id: str, payload: Dict[str, Any]):
-        """Send data to Zapier/Custom endpoint."""
         config = self.webhook_configs.get(user_id)
         if not config or "zapier_url" not in config:
             return False
@@ -32,7 +31,6 @@ class EnterpriseIntegrationService:
                 return False
 
     def handle_slack_command(self, payload: Dict[str, Any], signature: str, timestamp: str) -> Dict[str, Any]:
-        """Mock handler for Slack slash commands."""
         text = payload.get("text", "")
         return {
             "response_type": "in_channel",
@@ -40,7 +38,6 @@ class EnterpriseIntegrationService:
         }
 
     def generate_api_key(self, user_id: str) -> str:
-        """Generate a token for external tools (Zapier/Custom)."""
         token = hashlib.sha256(f"{user_id}{datetime.utcnow()}{secrets.token_hex(8)}".encode()).hexdigest()
         self.verified_tokens[token] = user_id
         return token

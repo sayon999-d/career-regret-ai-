@@ -13,6 +13,7 @@ from collections import defaultdict, OrderedDict
 from threading import Lock
 from functools import wraps
 import json
+import sqlite3
 import asyncio
 
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,6 @@ security_logger.setLevel(logging.WARNING)
 
 
 class SecurityConfig:
-    """Centralized security configuration with strict defaults"""
 
     SECRET_KEY: str = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY", "")
     if not SECRET_KEY:
@@ -77,7 +77,6 @@ class SecurityConfig:
 
 
 class SecurityException(Exception):
-    """Base security exception"""
     def __init__(self, message: str, code: str = "SECURITY_ERROR"):
         self.message = message
         self.code = code
@@ -108,13 +107,11 @@ class IPBlocked(SecurityException):
 
 
 class InputValidator:
-    """Strict input validation and sanitization"""
 
     _blocked_patterns = [re.compile(p, re.IGNORECASE) for p in SecurityConfig.BLOCKED_PATTERNS]
 
     @classmethod
     def sanitize_string(cls, text: str, max_length: int = None) -> str:
-        """Sanitize a string input - removes dangerous content"""
         if not text:
             return ""
 
@@ -137,7 +134,6 @@ class InputValidator:
 
     @classmethod
     def validate_input(cls, text: str, field_name: str = "input") -> Tuple[bool, str]:
-        """Validate input against known attack patterns"""
         if not text:
             return True, ""
 
@@ -152,7 +148,6 @@ class InputValidator:
 
     @classmethod
     def validate_email(cls, email: str) -> bool:
-        """Validate email format strictly"""
         if not email or len(email) > 254:
             return False
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -160,7 +155,6 @@ class InputValidator:
 
     @classmethod
     def validate_username(cls, username: str) -> bool:
-        """Validate username - alphanumeric and underscores only"""
         if not username or len(username) < 3 or len(username) > 30:
             return False
         pattern = r'^[a-zA-Z0-9_]+$'
@@ -168,7 +162,6 @@ class InputValidator:
 
     @classmethod
     def validate_password_strength(cls, password: str) -> Tuple[bool, str]:
-        """Validate password meets security requirements"""
         if len(password) < 12:
             return False, "Password must be at least 12 characters"
         if not re.search(r'[A-Z]', password):
@@ -183,7 +176,6 @@ class InputValidator:
 
     @classmethod
     def validate_json_depth(cls, obj: Any, current_depth: int = 0) -> bool:
-        """Prevent deeply nested JSON attacks"""
         if current_depth > SecurityConfig.MAX_JSON_DEPTH:
             return False
 
@@ -200,7 +192,6 @@ class InputValidator:
 
     @classmethod
     def sanitize_path(cls, path: str) -> str:
-        """Sanitize file path to prevent traversal attacks"""
         path = path.replace('..', '')
         path = path.replace('~', '')
         path = re.sub(r'[^a-zA-Z0-9_\-.]', '', path)
@@ -209,7 +200,6 @@ class InputValidator:
 
 
 class PasswordService:
-    """Secure password hashing using PBKDF2-SHA256"""
 
     ITERATIONS = 310000
     SALT_LENGTH = 32
@@ -217,7 +207,6 @@ class PasswordService:
 
     @classmethod
     def hash_password(cls, password: str) -> str:
-        """Hash password with secure random salt"""
         salt = secrets.token_bytes(cls.SALT_LENGTH)
         key = hashlib.pbkdf2_hmac(
             'sha256',
@@ -230,7 +219,6 @@ class PasswordService:
 
     @classmethod
     def verify_password(cls, password: str, stored_hash: str) -> bool:
-        """Verify password against stored hash using constant-time comparison"""
         try:
             iterations_str, salt_hex, key_hex = stored_hash.split('$')
             iterations = int(iterations_str)
@@ -253,7 +241,6 @@ class PasswordService:
 
 @dataclass
 class RateLimitBucket:
-    """Token bucket for rate limiting"""
     tokens: float
     last_update: float
     requests_this_minute: int = 0
@@ -263,7 +250,6 @@ class RateLimitBucket:
     blocked_until: float = 0
 
 class HardenedRateLimiter:
-    """Enterprise-grade rate limiter with multiple algorithms"""
 
     def __init__(
         self,
@@ -290,14 +276,12 @@ class HardenedRateLimiter:
         return self.buckets[identifier]
 
     def _refill_tokens(self, bucket: RateLimitBucket, now: float):
-        """Refill tokens based on elapsed time"""
         elapsed = now - bucket.last_update
         refill_rate = self.rpm / 60.0
         bucket.tokens = min(self.burst, bucket.tokens + elapsed * refill_rate)
         bucket.last_update = now
 
     def is_allowed(self, identifier: str) -> Tuple[bool, Dict[str, Any]]:
-        """Check if request is allowed under rate limits"""
         now = time.time()
 
         with self.lock:
@@ -356,17 +340,14 @@ class HardenedRateLimiter:
             }
 
     def is_suspicious(self, identifier: str, threshold: int = 10) -> bool:
-        """Check if an IP/identifier has been flagged as suspicious"""
         return self.suspicious_ips.get(identifier, 0) >= threshold
 
     def block_ip(self, identifier: str, duration_seconds: int = 3600):
-        """Manually block an IP address"""
         with self.lock:
             bucket = self._get_bucket(identifier)
             bucket.blocked_until = time.time() + duration_seconds
 
     def cleanup_old_buckets(self, max_age_hours: int = 24):
-        """Clean up old rate limit buckets to prevent memory exhaustion"""
         now = time.time()
         cutoff = now - (max_age_hours * 3600)
 
@@ -387,7 +368,6 @@ class LoginAttempt:
     ip_address: str
 
 class BruteForceProtector:
-    """Protection against brute force login attacks"""
 
     def __init__(
         self,
@@ -401,7 +381,6 @@ class BruteForceProtector:
         self.lock = Lock()
 
     def _cleanup_old_attempts(self, identifier: str, window_seconds: int = 900):
-        """Remove attempts older than window"""
         now = time.time()
         cutoff = now - window_seconds
         self.attempts[identifier] = [
@@ -409,7 +388,6 @@ class BruteForceProtector:
         ]
 
     def record_attempt(self, identifier: str, success: bool, ip_address: str):
-        """Record a login attempt"""
         with self.lock:
             self._cleanup_old_attempts(identifier)
 
@@ -428,7 +406,6 @@ class BruteForceProtector:
                     )
 
     def is_locked(self, identifier: str) -> Tuple[bool, Optional[float]]:
-        """Check if account/IP is locked"""
         with self.lock:
             if identifier in self.lockouts:
                 lockout_until = self.lockouts[identifier]
@@ -439,7 +416,6 @@ class BruteForceProtector:
             return False, None
 
     def get_remaining_attempts(self, identifier: str) -> int:
-        """Get remaining login attempts before lockout"""
         with self.lock:
             self._cleanup_old_attempts(identifier)
             failed = sum(1 for a in self.attempts[identifier] if not a.success)
@@ -448,7 +424,6 @@ class BruteForceProtector:
 
 
 class IPManager:
-    """Manage IP whitelists, blacklists, and validation"""
 
     def __init__(self):
         self.blacklist: Set[str] = set(SecurityConfig.IP_BLACKLIST)
@@ -457,7 +432,6 @@ class IPManager:
         self.lock = Lock()
 
     def is_valid_ip(self, ip: str) -> bool:
-        """Validate IP address format"""
         try:
             ipaddress.ip_address(ip)
             return True
@@ -465,14 +439,12 @@ class IPManager:
             return False
 
     def is_private_ip(self, ip: str) -> bool:
-        """Check if IP is private/internal"""
         try:
             return ipaddress.ip_address(ip).is_private
         except ValueError:
             return False
 
     def is_blocked(self, ip: str) -> bool:
-        """Check if IP is blocked"""
         if ip in self.blacklist:
             return True
 
@@ -486,22 +458,18 @@ class IPManager:
         return False
 
     def is_whitelisted(self, ip: str) -> bool:
-        """Check if IP is whitelisted"""
         return ip in self.whitelist
 
     def block_ip(self, ip: str, duration_hours: int = 24):
-        """Dynamically block an IP"""
         with self.lock:
             self.dynamic_blocks[ip] = time.time() + (duration_hours * 3600)
         security_logger.warning(f"IP blocked: {ip} for {duration_hours} hours")
 
     def unblock_ip(self, ip: str):
-        """Remove IP from dynamic block list"""
         with self.lock:
             self.dynamic_blocks.pop(ip, None)
 
     def add_to_blacklist(self, ip: str):
-        """Permanently add IP to blacklist"""
         self.blacklist.add(ip)
         security_logger.warning(f"IP added to permanent blacklist: {ip}")
 
@@ -519,7 +487,6 @@ class AuditEvent:
     details: Dict[str, Any] = field(default_factory=dict)
 
 class AuditLogger:
-    """Security audit logging for compliance and incident response"""
 
     def __init__(self, max_events: int = 10000):
         self.events: List[AuditEvent] = []
@@ -536,7 +503,6 @@ class AuditLogger:
         user_id: str = None,
         details: Dict = None
     ):
-        """Log a security-relevant event"""
         event = AuditEvent(
             timestamp=datetime.utcnow(),
             event_type=event_type,
@@ -566,7 +532,6 @@ class AuditLogger:
         since: datetime = None,
         limit: int = 100
     ) -> List[AuditEvent]:
-        """Query audit events"""
         with self.lock:
             events = self.events.copy()
 
@@ -580,7 +545,6 @@ class AuditLogger:
         return events[-limit:]
 
     def get_suspicious_activity(self, ip_address: str = None, hours: int = 24) -> List[AuditEvent]:
-        """Get failed/suspicious events"""
         since = datetime.utcnow() - timedelta(hours=hours)
         with self.lock:
             events = [
@@ -593,11 +557,9 @@ class AuditLogger:
 
 
 class SecurityHeaders:
-    """HTTP Security Headers for defense in depth"""
 
     @staticmethod
     def get_headers(is_html: bool = False) -> Dict[str, str]:
-        """Get security headers for responses"""
         headers = {
             "X-Frame-Options": "DENY",
 
@@ -637,7 +599,6 @@ class SecurityHeaders:
 
 
 class CSRFProtector:
-    """Cross-Site Request Forgery protection"""
 
     TOKEN_LENGTH = 64
     TOKEN_LIFETIME_SECONDS = 3600
@@ -647,14 +608,12 @@ class CSRFProtector:
         self.lock = Lock()
 
     def generate_token(self, session_id: str) -> str:
-        """Generate a CSRF token for a session"""
         token = secrets.token_urlsafe(self.TOKEN_LENGTH)
         with self.lock:
             self.tokens[session_id] = (token, time.time())
         return token
 
     def validate_token(self, session_id: str, token: str) -> bool:
-        """Validate a CSRF token"""
         with self.lock:
             if session_id not in self.tokens:
                 return False
@@ -668,7 +627,6 @@ class CSRFProtector:
             return hmac.compare_digest(token, stored_token)
 
     def cleanup_expired(self):
-        """Remove expired tokens"""
         now = time.time()
         with self.lock:
             expired = [
@@ -681,7 +639,6 @@ class CSRFProtector:
 
 
 class RequestValidator:
-    """Validate incoming requests for security issues"""
 
     DANGEROUS_USER_AGENTS = [
         "sqlmap", "nikto", "nmap", "masscan", "dirbuster",
@@ -690,7 +647,6 @@ class RequestValidator:
 
     @classmethod
     def validate_user_agent(cls, user_agent: str) -> bool:
-        """Check for known attack tool user agents"""
         if not user_agent:
             return False
         ua_lower = user_agent.lower()
@@ -698,19 +654,16 @@ class RequestValidator:
 
     @classmethod
     def validate_content_type(cls, content_type: str, expected: str = "application/json") -> bool:
-        """Validate Content-Type header"""
         if not content_type:
             return False
         return expected in content_type.lower()
 
     @classmethod
     def validate_request_size(cls, content_length: int) -> bool:
-        """Check request size limits"""
         return content_length <= SecurityConfig.MAX_REQUEST_SIZE
 
     @classmethod
     def detect_request_smuggling(cls, headers: Dict[str, str]) -> bool:
-        """Detect potential HTTP request smuggling attempts"""
         te = headers.get("transfer-encoding", "").lower()
         cl = headers.get("content-length", "")
 
@@ -742,9 +695,25 @@ class SecureUser:
     locked_until: Optional[datetime] = None
 
 class HardenedAuthService:
-    """Secure authentication service"""
+    @staticmethod
+    def _resolve_db_path():
+        primary = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'career_ai_users.db')
+        try:
+            import sqlite3 as _sq
+            _conn = _sq.connect(primary)
+            _conn.execute("SELECT 1")
+            _conn.close()
+            return primary
+        except Exception:
+            fallback = os.path.join('/tmp', 'career_ai_users.db')
+            print(f"[AuthService] Primary DB path unavailable, using fallback: {fallback}")
+            return fallback
+
+    _DB_PATH = None
 
     def __init__(self):
+        if self._DB_PATH is None:
+            self._DB_PATH = self._resolve_db_path()
         self.users: Dict[str, SecureUser] = {}
         self.sessions: Dict[str, Tuple[str, float]] = {}
         self.api_keys: Dict[str, str] = {}
@@ -753,10 +722,82 @@ class HardenedAuthService:
         self.audit = AuditLogger()
         self.lock = Lock()
 
+        os.makedirs(os.path.dirname(self._DB_PATH), exist_ok=True)
+        self._init_user_db()
+        self._load_users_from_db()
         self._create_admin_account()
 
+    def _init_user_db(self):
+        conn = sqlite3.connect(self._DB_PATH)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS auth_users (
+                    username TEXT PRIMARY KEY,
+                    id TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    is_active INTEGER DEFAULT 1,
+                    is_admin INTEGER DEFAULT 0,
+                    api_key TEXT,
+                    created_at TEXT,
+                    last_login TEXT
+                )
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _load_users_from_db(self):
+        conn = sqlite3.connect(self._DB_PATH)
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM auth_users").fetchall()
+            for row in rows:
+                user = SecureUser(
+                    id=row["id"],
+                    username=row["username"],
+                    email=row["email"],
+                    password_hash=row["password_hash"],
+                    is_active=bool(row["is_active"]),
+                    is_admin=bool(row["is_admin"]),
+                    api_key=row["api_key"],
+                    created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else datetime.utcnow(),
+                )
+                self.users[row["username"]] = user
+                if user.api_key:
+                    self.api_keys[user.api_key] = user.id
+            if rows:
+                security_logger.info(f"Loaded {len(rows)} persisted user(s) from database")
+        finally:
+            conn.close()
+
+    def _persist_user(self, user: SecureUser):
+        conn = sqlite3.connect(self._DB_PATH)
+        try:
+            conn.execute("""
+                INSERT INTO auth_users (username, id, email, password_hash, is_active, is_admin, api_key, created_at, last_login)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(username) DO UPDATE SET
+                    password_hash = excluded.password_hash,
+                    is_active     = excluded.is_active,
+                    api_key       = excluded.api_key,
+                    last_login    = excluded.last_login
+            """, (
+                user.username, user.id, user.email, user.password_hash,
+                int(user.is_active), int(user.is_admin),
+                user.api_key,
+                user.created_at.isoformat() if user.created_at else datetime.utcnow().isoformat(),
+                user.last_login.isoformat() if user.last_login else None,
+            ))
+            conn.commit()
+        finally:
+            conn.close()
+
     def _create_admin_account(self):
-        """Create admin account with secure password"""
+        if "admin" in self.users:
+            return
+
         admin_password = os.getenv("ADMIN_PASSWORD")
         if not admin_password:
             admin_password = secrets.token_urlsafe(32)
@@ -773,6 +814,7 @@ class HardenedAuthService:
         )
         self.users["admin"] = admin
         self.api_keys[admin.api_key] = admin.id
+        self._persist_user(admin)
 
     def register(
         self,
@@ -781,7 +823,6 @@ class HardenedAuthService:
         password: str,
         ip_address: str
     ) -> Tuple[Optional[SecureUser], str]:
-        """Register a new user with validation"""
         if not InputValidator.validate_username(username):
             return None, "Invalid username. Use 3-30 alphanumeric characters."
 
@@ -809,6 +850,7 @@ class HardenedAuthService:
 
             self.users[username] = user
             self.api_keys[user.api_key] = user.id
+            self._persist_user(user)
 
         self.audit.log(
             event_type="AUTH",
@@ -827,7 +869,6 @@ class HardenedAuthService:
         password: str,
         ip_address: str
     ) -> Tuple[Optional[SecureUser], str]:
-        """Authenticate user with brute force protection"""
         allowed, info = self.rate_limiter.is_allowed(ip_address)
         if not allowed:
             return None, f"Too many requests. Retry after {info.get('retry_after', 60)} seconds."
@@ -847,6 +888,7 @@ class HardenedAuthService:
             self.brute_force.record_attempt(username, True, ip_address)
             user.last_login = datetime.utcnow()
             user.failed_login_count = 0
+            self._persist_user(user)
 
             self.audit.log(
                 event_type="AUTH",
@@ -875,7 +917,6 @@ class HardenedAuthService:
         return None, f"Invalid credentials. {remaining} attempts remaining."
 
     def create_session(self, user_id: str) -> str:
-        """Create a secure session token"""
         session_id = secrets.token_urlsafe(64)
         expires_at = time.time() + (SecurityConfig.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
 
@@ -885,7 +926,6 @@ class HardenedAuthService:
         return session_id
 
     def validate_session(self, session_id: str) -> Optional[str]:
-        """Validate session and return user_id"""
         with self.lock:
             if session_id not in self.sessions:
                 return None
@@ -898,11 +938,9 @@ class HardenedAuthService:
             return user_id
 
     def validate_api_key(self, api_key: str) -> Optional[str]:
-        """Validate API key and return user_id"""
         return self.api_keys.get(api_key)
 
     def get_user_by_id(self, user_id: str) -> Optional[SecureUser]:
-        """Retrieve user by ID"""
         with self.lock:
             for user in self.users.values():
                 if user.id == user_id:
@@ -910,12 +948,10 @@ class HardenedAuthService:
         return None
 
     def logout(self, session_id: str):
-        """Invalidate a session"""
         with self.lock:
             self.sessions.pop(session_id, None)
 
     def cleanup_expired_sessions(self):
-        """Remove expired sessions"""
         now = time.time()
         with self.lock:
             expired = [
@@ -928,7 +964,6 @@ class HardenedAuthService:
 
 
 class SecurityMiddlewareHelper:
-    """Helper for FastAPI security middleware"""
 
     def __init__(self):
         self.rate_limiter = HardenedRateLimiter()
@@ -944,10 +979,6 @@ class SecurityMiddlewareHelper:
         headers: Dict[str, str],
         user_agent: str = None
     ) -> Tuple[bool, Optional[str], int]:
-        """
-        Check if request should be allowed.
-        Returns: (allowed, error_message, status_code)
-        """
         if self.ip_manager.is_blocked(ip_address):
             self.audit.log("SECURITY", ip_address, path, "blocked_ip", False)
             return False, "Access denied", 403
@@ -973,7 +1004,6 @@ class SecurityMiddlewareHelper:
         return True, None, 200
 
     def get_client_ip(self, request_headers: Dict[str, str], direct_ip: str) -> str:
-        """Extract real client IP from headers (proxy-aware)"""
         forwarded_for = request_headers.get("x-forwarded-for", "")
         if forwarded_for:
             ip = forwarded_for.split(",")[0].strip()
@@ -1190,7 +1220,6 @@ class TokenOptimizer:
         return len(text) // 4
 
 class AISecurityGuard:
-    """Security layer specifically for AI prompt protection"""
     
     INJECTION_PATTERNS = [
         r"(?i)ignore\s+(?:all\s+)?(?:previous\s+)?instructions",
@@ -1209,7 +1238,6 @@ class AISecurityGuard:
 
     @staticmethod
     def contains_injection(text: str) -> bool:
-        """Check if a string contains common prompt injection patterns"""
         if not text:
             return False
         
@@ -1220,7 +1248,6 @@ class AISecurityGuard:
 
     @staticmethod
     def wrap_untrusted_content(content: str, label: str = "UNTRUSTED DATA") -> str:
-        """Wrap untrusted content in clear delimiters for the LLM"""
         if not content:
             return ""
         
@@ -1230,7 +1257,6 @@ class AISecurityGuard:
 
     @staticmethod
     def sanitize_for_prompt(text: str) -> str:
-        """Basic sanitization to neutralize potential control characters"""
         if not text:
             return ""
         

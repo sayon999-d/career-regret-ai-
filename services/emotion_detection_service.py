@@ -108,7 +108,6 @@ class EmotionDetectionService:
             return False
 
     def register_consent(self, user_id: str, permissions: Dict[str, bool]):
-        """Explicit consent control for multi-modal inputs"""
         self._consent_registry[user_id] = {
             'video': permissions.get('video', False),
             'voice': permissions.get('voice', False),
@@ -117,7 +116,6 @@ class EmotionDetectionService:
         }
 
     def check_signal_quality(self, image: np.ndarray) -> Dict[str, Any]:
-        """Assess signal quality for reliability"""
         try:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
             brightness = np.mean(gray)
@@ -141,7 +139,6 @@ class EmotionDetectionService:
             return {'is_good': True, 'issues': []}
 
     def update_baseline(self, user_id: str, emotion: str, confidence: float):
-        """Learn individual emotional patterns continuously"""
         if user_id not in self._user_baselines:
             self._user_baselines[user_id] = defaultdict(float)
 
@@ -149,7 +146,6 @@ class EmotionDetectionService:
         self._user_baselines[user_id][emotion] = (current_baseline * 0.9) + (confidence * 0.1)
 
     def detect_volatility(self, user_id: str, current_emotions: Dict[str, float]) -> float:
-        """Detect emotional volatility over time"""
         if user_id not in self._volatility_monitor:
             self._volatility_monitor[user_id] = []
 
@@ -169,7 +165,6 @@ class EmotionDetectionService:
         return 0.0
 
     def get_calibrated_confidence(self, user_id: str, emotion: str, raw_confidence: float) -> float:
-        """Improve accuracy over time using baselines"""
         baseline = self._user_baselines.get(user_id, {}).get(emotion, 0.5)
         if baseline > 0.6:
             return raw_confidence * 0.8

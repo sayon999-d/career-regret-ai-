@@ -20,7 +20,6 @@ class ExportFormat:
 
 
 class ExportImportService:
-    """Handles all data export and import functionality"""
     
     def __init__(self):
         default_export_dir = os.path.join(tempfile.gettempdir(), "exports")
@@ -29,7 +28,6 @@ class ExportImportService:
     
     
     def export_all_data(self, user_id: str, format: str = ExportFormat.JSON) -> Dict:
-        """Export all user data"""
         data = db_service.export_user_data(user_id)
         
         if format == ExportFormat.JSON:
@@ -46,7 +44,6 @@ class ExportImportService:
         status: str = None,
         decision_type: str = None
     ) -> Dict:
-        """Export decisions to specified format"""
         decisions, _ = db_service.get_decisions(
             user_id,
             status=status,
@@ -67,7 +64,6 @@ class ExportImportService:
         start_date: str = None,
         end_date: str = None
     ) -> Dict:
-        """Export calendar events to specified format"""
         events = db_service.get_calendar_events(user_id, start_date, end_date)
         
         if format == ExportFormat.ICS:
@@ -79,7 +75,6 @@ class ExportImportService:
                                     f"events_{user_id}")
     
     def export_conversations(self, user_id: str) -> Dict:
-        """Export all conversations"""
         conversations = db_service.get_conversations(user_id, limit=10000)
         full_conversations = []
         
@@ -94,7 +89,6 @@ class ExportImportService:
         }, f"conversations_{user_id}")
     
     def _export_json(self, data: Dict, filename: str) -> Dict:
-        """Export data as JSON"""
         json_str = json.dumps(data, indent=2, default=str)
         filepath = os.path.join(self.export_dir, f"{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
         
@@ -111,7 +105,6 @@ class ExportImportService:
         }
     
     def _export_decisions_csv(self, decisions: List[Dict], user_id: str) -> Dict:
-        """Export decisions as CSV"""
         output = io.StringIO()
         
         fieldnames = [
@@ -146,7 +139,6 @@ class ExportImportService:
         }
     
     def _export_events_ics(self, events: List[Dict], user_id: str) -> Dict:
-        """Export events as ICS (iCalendar) format"""
         ics_lines = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
@@ -199,7 +191,6 @@ class ExportImportService:
         }
     
     def _export_events_csv(self, events: List[Dict], user_id: str) -> Dict:
-        """Export events as CSV"""
         output = io.StringIO()
         
         fieldnames = ['id', 'title', 'description', 'event_type', 'start_time', 'end_time', 'location', 'synced']
@@ -226,7 +217,6 @@ class ExportImportService:
         }
     
     def _export_zip(self, user_id: str, data: Dict) -> Dict:
-        """Export all data as a ZIP archive"""
         zip_path = os.path.join(self.export_dir, f"career_backup_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
         
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -266,14 +256,10 @@ To import this data, use the Import feature in the application.
             "content_type": "application/zip"
         }
     
-    # ============ IMPORT FUNCTIONS ============
-    
     def import_data(self, user_id: str, data: Dict) -> Dict:
-        """Import data from JSON"""
         return db_service.import_user_data(user_id, data)
     
     def import_from_json(self, user_id: str, json_content: str) -> Dict:
-        """Import data from JSON string"""
         try:
             data = json.loads(json_content)
             return self.import_data(user_id, data)
@@ -281,7 +267,6 @@ To import this data, use the Import feature in the application.
             return {"error": "Invalid JSON format"}
     
     def import_from_file(self, user_id: str, file_path: str) -> Dict:
-        """Import data from file"""
         if file_path.endswith('.json'):
             with open(file_path, 'r') as f:
                 return self.import_from_json(user_id, f.read())
@@ -291,7 +276,6 @@ To import this data, use the Import feature in the application.
             return {"error": "Unsupported file format"}
     
     def _import_from_zip(self, user_id: str, zip_path: str) -> Dict:
-        """Import data from ZIP archive"""
         try:
             with zipfile.ZipFile(zip_path, 'r') as zipf:
                 if 'data.json' in zipf.namelist():
@@ -303,7 +287,6 @@ To import this data, use the Import feature in the application.
             return {"error": str(e)}
     
     def import_decisions_csv(self, user_id: str, csv_content: str) -> Dict:
-        """Import decisions from CSV"""
         imported = 0
         errors = []
         
@@ -336,7 +319,6 @@ To import this data, use the Import feature in the application.
         }
     
     def import_calendar_ics(self, user_id: str, ics_content: str) -> Dict:
-        """Import calendar events from ICS format"""
         imported = 0
         errors = []
         
@@ -376,7 +358,6 @@ To import this data, use the Import feature in the application.
         }
     
     def _parse_ics_date(self, date_str: str) -> str:
-        """Parse ICS date format to ISO format"""
         if not date_str:
             return datetime.utcnow().isoformat()
         
@@ -394,7 +375,6 @@ To import this data, use the Import feature in the application.
     
     
     def create_backup(self, user_id: str = None) -> Dict:
-        """Create a full backup"""
         if user_id:
             data = db_service.export_user_data(user_id)
             return self._export_zip(user_id, data)
@@ -402,7 +382,6 @@ To import this data, use the Import feature in the application.
             return {"error": "Full system backup not implemented"}
     
     def list_backups(self, user_id: str = None) -> List[Dict]:
-        """List available backups"""
         backups = []
         
         for filename in os.listdir(self.export_dir):

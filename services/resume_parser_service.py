@@ -63,9 +63,6 @@ class ParsedResume:
 
 
 class ResumeParserService:
-    """
-    Parses resumes and extracts structured career data
-    """
 
     SKILL_KEYWORDS = {
         "programming": [
@@ -111,7 +108,6 @@ class ResumeParserService:
         text_content: str,
         filename: str = ""
     ) -> Dict[str, Any]:
-        """Parse a resume from text content"""
         resume_id = hashlib.sha256(
             f"{user_id}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
@@ -164,7 +160,6 @@ class ResumeParserService:
         return self._to_dict(parsed)
 
     def calculate_resume_score(self, resume_id: str) -> Dict[str, Any]:
-        """Calculate a detailed resume score with breakdown and recommendations"""
         parsed = self.parsed_resumes.get(resume_id)
         if not parsed:
             return {"error": "Resume not found"}
@@ -210,7 +205,6 @@ class ResumeParserService:
         }
 
     def _extract_name(self, text: str) -> str:
-        """Extract candidate name from resume"""
         lines = text.strip().split('\n')
         for line in lines[:5]:
             line = line.strip()
@@ -221,13 +215,11 @@ class ResumeParserService:
         return ""
 
     def _extract_email(self, text: str) -> str:
-        """Extract email address"""
         email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
         match = re.search(email_pattern, text)
         return match.group(0) if match else ""
 
     def _extract_phone(self, text: str) -> str:
-        """Extract phone number"""
         phone_patterns = [
             r'\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
             r'\+\d{1,3}[-.\s]?\d{8,12}'
@@ -239,7 +231,6 @@ class ResumeParserService:
         return ""
 
     def _extract_location(self, text: str) -> str:
-        """Extract location from resume"""
         location_patterns = [
             r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2})',
             r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z][a-z]+)',
@@ -251,7 +242,6 @@ class ResumeParserService:
         return ""
 
     def _extract_summary(self, text: str) -> str:
-        """Extract professional summary"""
         summary_markers = [
             "summary", "professional summary", "profile", "objective",
             "about me", "career objective"
@@ -273,7 +263,6 @@ class ResumeParserService:
         return ""
 
     def _extract_experience(self, text: str) -> List[WorkExperience]:
-        """Extract work experience entries"""
         experiences = []
 
         exp_markers = ["experience", "work history", "employment", "professional experience"]
@@ -338,7 +327,6 @@ class ResumeParserService:
         return experiences[:10]
 
     def _extract_education(self, text: str) -> List[Education]:
-        """Extract education entries"""
         education = []
 
         edu_markers = ["education", "academic background", "qualifications"]
@@ -391,7 +379,6 @@ class ResumeParserService:
         return education[:5]
 
     def _extract_skills(self, text_lower: str) -> List[str]:
-        """Extract skills from resume"""
         found_skills = set()
 
         for category, skills in self.SKILL_KEYWORDS.items():
@@ -402,7 +389,6 @@ class ResumeParserService:
         return list(found_skills)[:30]
 
     def _extract_certifications(self, text_lower: str) -> List[str]:
-        """Extract certifications from resume"""
         certs = []
         for cert in self.SKILL_KEYWORDS.get("certifications", []):
             if cert in text_lower:
@@ -410,7 +396,6 @@ class ResumeParserService:
         return certs[:10]
 
     def _extract_languages(self, text: str) -> List[str]:
-        """Extract spoken languages"""
         common_languages = [
             "English", "Spanish", "French", "German", "Chinese", "Japanese",
             "Korean", "Portuguese", "Italian", "Russian", "Arabic", "Hindi"
@@ -422,7 +407,6 @@ class ResumeParserService:
         return found
 
     def _calculate_years_experience(self, experiences: List[WorkExperience]) -> float:
-        """Calculate total years of experience"""
         if not experiences:
             return 0.0
 
@@ -434,7 +418,6 @@ class ResumeParserService:
         experiences: List[WorkExperience],
         years_exp: float
     ) -> str:
-        """Determine seniority level"""
         for level, keywords in self.SENIORITY_KEYWORDS.items():
             if any(kw in text_lower for kw in keywords):
                 if level == "executive":
@@ -451,7 +434,6 @@ class ResumeParserService:
         return "Entry-Level"
 
     def _extract_industry_keywords(self, text_lower: str) -> List[str]:
-        """Extract industry-specific keywords"""
         industries = [
             "technology", "healthcare", "finance", "fintech", "e-commerce",
             "saas", "startup", "enterprise", "consulting", "manufacturing",
@@ -460,7 +442,6 @@ class ResumeParserService:
         return [ind.title() for ind in industries if ind in text_lower]
 
     def _to_dict(self, parsed: ParsedResume) -> Dict[str, Any]:
-        """Convert ParsedResume to dictionary"""
         score_data = self._score_resume(parsed)
         return {
             "id": parsed.id,
@@ -564,7 +545,6 @@ class ResumeParserService:
         }
 
     def get_resume(self, resume_id: str) -> Optional[Dict[str, Any]]:
-        """Get a parsed resume by ID"""
         parsed = self.parsed_resumes.get(resume_id)
         return self._to_dict(parsed) if parsed else None
 
@@ -573,12 +553,10 @@ class ResumeParserService:
         resume_id: str,
         target_role: str
     ) -> Dict[str, Any]:
-        """Identify skill gaps for a target role"""
         parsed = self.parsed_resumes.get(resume_id)
         if not parsed:
             return {"error": "Resume not found"}
 
-        # Normalize role (allow underscores / hyphens from UI values)
         normalized = target_role.replace('_', ' ').replace('-', ' ').lower().strip()
 
         role_skills = {

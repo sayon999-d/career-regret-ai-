@@ -73,8 +73,13 @@ class VoiceSpeechService:
             self.whisper_model = whisper.load_model("base")
             self.stt_provider = VoiceProvider.WHISPER
             print("Whisper STT initialized")
-        except Exception:
+        except ImportError as e:
             self.stt_provider = VoiceProvider.BROWSER
+            print(f"Whisper import failed: {e}")
+            print("Using browser-based STT (Whisper not available)")
+        except Exception as e:
+            self.stt_provider = VoiceProvider.BROWSER
+            print(f"Whisper initialization error: {e}")
             print("Using browser-based STT (Whisper not available)")
 
         try:

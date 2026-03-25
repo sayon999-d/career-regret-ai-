@@ -50,9 +50,6 @@ class Timeline:
     total_satisfaction: float
 
 class MultiverseVisualizationService:
-    """
-    Generates 3D coordinate data for visualizing decision trees as a multiverse.
-    """
 
     COLORS = {
         "success": "#22c55e",
@@ -84,9 +81,6 @@ class MultiverseVisualizationService:
         historical_decisions: List[Dict[str, Any]] = None,
         simulation_results: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-        """
-        Generate a complete 3D decision forest visualization data.
-        """
         decision_type = current_decision.get("decision_type", "job_change")
         config = self.DECISION_TYPES.get(decision_type, self.DECISION_TYPES["job_change"])
 
@@ -137,7 +131,6 @@ class MultiverseVisualizationService:
         depth: int,
         simulation_results: Dict[str, Any] = None
     ) -> List[Timeline]:
-        """Generate multiple possible timeline branches."""
         timelines = []
 
         root_node = DecisionNode3D(
@@ -184,7 +177,6 @@ class MultiverseVisualizationService:
         base_angle: float,
         probability: float
     ) -> Timeline:
-        """Generate a single timeline branch."""
         nodes = [root_node]
         edges = []
 

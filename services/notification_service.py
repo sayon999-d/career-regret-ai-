@@ -33,7 +33,6 @@ class NotificationSettings:
 
 
 class NotificationService:
-    """Manages all notification functionality"""
     
     def __init__(self):
         self.default_settings = NotificationSettings()
@@ -48,7 +47,6 @@ class NotificationService:
         action_url: str = None,
         persist: bool = True
     ) -> Dict:
-        """Create a new notification"""
         if persist:
             result = db_service.create_notification(
                 user_id=user_id,
@@ -80,24 +78,19 @@ class NotificationService:
         unread_only: bool = False,
         limit: int = 50
     ) -> List[Dict]:
-        """Get user notifications"""
         return db_service.get_notifications(user_id, unread_only, limit)
     
     def get_unread_count(self, user_id: str) -> int:
-        """Get count of unread notifications"""
         notifications = db_service.get_notifications(user_id, unread_only=True)
         return len(notifications)
     
     def mark_read(self, user_id: str, notification_id: str) -> bool:
-        """Mark a notification as read"""
         return db_service.mark_notification_read(user_id, notification_id)
     
     def mark_all_read(self, user_id: str) -> int:
-        """Mark all notifications as read"""
         return db_service.mark_all_notifications_read(user_id)
     
     def get_pending_realtime(self, user_id: str) -> List[Dict]:
-        """Get pending notifications for real-time delivery and clear them"""
         pending = self._pending_notifications.get(user_id, [])
         self._pending_notifications[user_id] = []
         return pending
@@ -111,7 +104,6 @@ class NotificationService:
         due_date: datetime,
         days_before: int = 1
     ) -> Dict:
-        """Create a reminder for an upcoming decision deadline"""
         reminder_date = due_date - timedelta(days=days_before)
         
         if reminder_date <= datetime.utcnow():
@@ -136,7 +128,6 @@ class NotificationService:
         decision_title: str,
         review_days: int = 30
     ) -> Dict:
-        """Create a reminder to review decision outcome"""
         return self.create_notification(
             user_id=user_id,
             title="Time to Review Your Decision",
@@ -151,7 +142,6 @@ class NotificationService:
         decision_id: str,
         decision_title: str
     ) -> Dict:
-        """Create a follow-up notification"""
         return self.create_notification(
             user_id=user_id,
             title="Decision Follow-up",
@@ -169,7 +159,6 @@ class NotificationService:
         event_time: datetime,
         minutes_before: int = 30
     ) -> Dict:
-        """Create a reminder for an upcoming calendar event"""
         return self.create_notification(
             user_id=user_id,
             title=f"Upcoming: {event_title}",
@@ -180,7 +169,6 @@ class NotificationService:
     
     
     def generate_weekly_digest(self, user_id: str) -> Dict:
-        """Generate weekly digest notification"""
         analytics = db_service.get_analytics_summary(user_id)
         decision_stats = analytics.get('decision_stats', {})
         
@@ -205,10 +193,7 @@ Keep making thoughtful decisions!
             action_url="/analytics"
         )
     
-    # ============ SYSTEM NOTIFICATIONS ============
-    
     def welcome_notification(self, user_id: str, username: str) -> Dict:
-        """Create welcome notification for new users"""
         return self.create_notification(
             user_id=user_id,
             title=f"Welcome, {username}! 🎉",
@@ -223,7 +208,6 @@ Keep making thoughtful decisions!
         achievement: str,
         description: str
     ) -> Dict:
-        """Create achievement notification"""
         return self.create_notification(
             user_id=user_id,
             title=f"Achievement Unlocked: {achievement}",
@@ -240,12 +224,10 @@ Keep making thoughtful decisions!
         body: str,
         html_body: str = None
     ) -> bool:
-        """Send email notification (placeholder for actual email service)"""
         print(f"[EMAIL] To: {user_id} | Subject: {subject}")
         return True
     
     def send_email_digest(self, user_id: str) -> bool:
-        """Send weekly email digest"""
         user = db_service.get_user_by_id(user_id)
         if not user:
             return False
@@ -273,7 +255,6 @@ Keep making thoughtful decisions!
         body: str,
         data: Dict = None
     ) -> bool:
-        """Send push notification (placeholder for actual push service)"""
         print(f"[PUSH] To: {user_id} | Title: {title}")
         return True
 

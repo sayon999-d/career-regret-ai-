@@ -26,7 +26,6 @@ class SimulationService:
         self.simulations: Dict[str, List[SimulationResult]] = {}
 
     def run_monte_carlo(self, decision_desc: str, base_salary: float, uncertainty_level: float = 0.2) -> Dict[str, Any]:
-        """Runs a Monte Carlo simulation for a career decision."""
         results = []
 
         realistic_outcomes = self._simulate_path(base_salary, growth_rate=0.08, volatility=uncertainty_level, iterations=100)

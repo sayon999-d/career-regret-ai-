@@ -53,9 +53,6 @@ class CheckInResponse:
 
 
 class ScheduledCheckInService:
-    """
-    Manages automated check-ins and follow-ups for user engagement
-    """
 
     DEFAULT_QUESTIONS = {
         CheckInType.DECISION_FOLLOW_UP: [
@@ -116,7 +113,6 @@ class ScheduledCheckInService:
         related_goal_id: str = None,
         custom_questions: List[str] = None
     ) -> ScheduledCheckIn:
-        """Create a new scheduled check-in"""
         check_in_id = hashlib.sha256(
             f"{user_id}{check_in_type.value}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
@@ -155,7 +151,6 @@ class ScheduledCheckInService:
         user_id: str,
         include_overdue: bool = True
     ) -> List[Dict[str, Any]]:
-        """Get all check-ins that are due or overdue"""
         if user_id not in self.check_ins:
             return []
 
@@ -193,7 +188,6 @@ class ScheduledCheckInService:
         return sorted(due_check_ins, key=lambda x: x.get("days_overdue", 0), reverse=True)
 
     def get_all_check_ins(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get all check-ins for a user"""
         if user_id not in self.check_ins:
             return []
 
@@ -214,7 +208,6 @@ class ScheduledCheckInService:
         responses: Dict[str, Any],
         mood_score: int = 5
     ) -> Dict[str, Any]:
-        """Complete a check-in with responses"""
         if user_id not in self.check_ins:
             return {"error": "No check-ins found for user"}
 
@@ -259,7 +252,6 @@ class ScheduledCheckInService:
         responses: Dict[str, Any],
         mood_score: int
     ) -> List[str]:
-        """Generate insights from check-in responses"""
         insights = []
 
         if mood_score <= 3:
@@ -275,7 +267,6 @@ class ScheduledCheckInService:
         return insights
 
     def _calculate_streak(self, user_id: str) -> int:
-        """Calculate the user's check-in completion streak"""
         if user_id not in self.responses:
             return 1
 
@@ -302,7 +293,6 @@ class ScheduledCheckInService:
         return streak
 
     def pause_check_in(self, user_id: str, check_in_id: str) -> bool:
-        """Pause a scheduled check-in"""
         if user_id not in self.check_ins:
             return False
 
@@ -313,7 +303,6 @@ class ScheduledCheckInService:
         return False
 
     def resume_check_in(self, user_id: str, check_in_id: str) -> bool:
-        """Resume a paused check-in"""
         if user_id not in self.check_ins:
             return False
 
@@ -325,7 +314,6 @@ class ScheduledCheckInService:
         return False
 
     def delete_check_in(self, user_id: str, check_in_id: str) -> bool:
-        """Delete a scheduled check-in"""
         if user_id not in self.check_ins:
             return False
 
@@ -335,7 +323,6 @@ class ScheduledCheckInService:
         return True
 
     def setup_default_check_ins(self, user_id: str) -> List[Dict[str, Any]]:
-        """Set up default check-ins for a new user"""
         default_check_ins = [
             {
                 "type": CheckInType.WEEKLY_REFLECTION,
@@ -375,7 +362,6 @@ class ScheduledCheckInService:
         decision_title: str,
         follow_up_days: int = 30
     ) -> ScheduledCheckIn:
-        """Create a follow-up check-in for a specific decision"""
         return self.create_check_in(
             user_id=user_id,
             check_in_type=CheckInType.DECISION_FOLLOW_UP,
@@ -393,7 +379,6 @@ class ScheduledCheckInService:
         goal_title: str,
         frequency: CheckInFrequency = CheckInFrequency.WEEKLY
     ) -> ScheduledCheckIn:
-        """Create a check-in for goal progress tracking"""
         return self.create_check_in(
             user_id=user_id,
             check_in_type=CheckInType.GOAL_REVIEW,
@@ -404,7 +389,6 @@ class ScheduledCheckInService:
         )
 
     def get_check_in_stats(self, user_id: str) -> Dict[str, Any]:
-        """Get check-in statistics for a user"""
         check_ins = self.check_ins.get(user_id, [])
         responses = self.responses.get(user_id, [])
 

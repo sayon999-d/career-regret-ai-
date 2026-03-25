@@ -150,7 +150,6 @@ class RAGService:
         return True
 
     def add_media_content(self, media_id: str, media_type: str, title: str, content: str, source_url: str = None) -> bool:
-        """Add extracted content from media (video, URL) to knowledge base"""
         if not self.initialized or not content or len(content.strip()) < 10:
             return False
 
@@ -180,7 +179,6 @@ class RAGService:
             return False
 
     def add_transcript_chunks(self, video_id: str, transcript: str, title: str) -> bool:
-        """Add video transcript as multiple documents for better retrieval"""
         if not self.initialized or not transcript or len(transcript.strip()) < 50:
             return False
 
@@ -202,7 +200,6 @@ class RAGService:
             return False
 
     def _split_into_chunks(self, text: str, max_length: int = 2000, overlap: int = 200) -> List[str]:
-        """Split text into overlapping chunks"""
         chunks = []
         
         sentences = text.replace('\n\n', '\n').split('\n')
@@ -223,7 +220,6 @@ class RAGService:
         return chunks
 
     def get_media_context(self, query: str, user_id: str = None, max_docs: int = 5) -> str:
-        """Retrieve context from user's media content"""
         results = self.retrieve(query, top_k=max_docs, category=None)
 
         media_results = [r for r in results if any(x in r.get('id', '') for x in ['media_', 'transcript_'])]

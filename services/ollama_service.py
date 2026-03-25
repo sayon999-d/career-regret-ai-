@@ -10,11 +10,13 @@ from services.security import ai_security
 class OllamaConfig:
     base_url: str = "http://localhost:11434"
     model: str = "llama3.2"
-    timeout: int = 120
+    timeout: int = 30
     temperature: float = 0.4
-    max_tokens: int = 512
+    max_tokens: int = 256
     top_p: float = 0.9
     repeat_penalty: float = 1.1
+    keep_alive: str = "10m"
+    num_ctx: int = 2048
 
 @dataclass
 class ConversationMessage:
@@ -227,11 +229,13 @@ class EnhancedOllamaService:
 
         payload = {
             "model": self.config.model, "prompt": prompt, "system": system, "stream": False,
+            "keep_alive": self.config.keep_alive,
             "options": {
                 "temperature": self.config.temperature,
                 "num_predict": self.config.max_tokens,
                 "top_p": self.config.top_p,
-                "repeat_penalty": self.config.repeat_penalty
+                "repeat_penalty": self.config.repeat_penalty,
+                "num_ctx": self.config.num_ctx
             }
         }
 
@@ -306,11 +310,13 @@ class EnhancedOllamaService:
 
         payload = {
             "model": self.config.model, "messages": messages, "stream": False,
+            "keep_alive": self.config.keep_alive,
             "options": {
                 "temperature": config["temperature"],
                 "num_predict": config["max_tokens"],
                 "top_p": self.config.top_p,
-                "repeat_penalty": self.config.repeat_penalty
+                "repeat_penalty": self.config.repeat_penalty,
+                "num_ctx": self.config.num_ctx
             }
         }
 
@@ -321,6 +327,92 @@ class EnhancedOllamaService:
             return data.get("message", {}).get("content", "I apologize, but I couldn't generate a response.")
 
         return self._generate_chat_fallback(message, context)
+
+    async def chat_stream(self, message: str, user_id: str = "default", context: Dict = None):
+        if user_id not in self.conversations:
+            self.conversations[user_id] = ConversationMemory()
+
+        memory = self.conversations[user_id]
+        memory.add_message("user", message)
+
+        if not self.is_available:
+            fallback = self._generate_chat_fallback(message, context)
+            memory.add_message("assistant", fallback)
+            yield fallback
+            return
+
+        if ai_security.contains_injection(message):
+            msg = "I apologize, but I cannot process this message as it contains potentially harmful instructions."
+            memory.add_message("assistant", msg)
+            yield msg
+            return
+
+        complexity = classify_task_complexity(message, context)
+        config = COMPLEXITY_CONFIGS[complexity]
+        system = config["system_prompt"]
+        additional_messages = []
+
+        if complexity == TaskComplexity.HIGH and context:
+            if context.get('file_context'):
+                file_ctx = context.get('file_context')
+                if not ai_security.contains_injection(file_ctx):
+                    safe_file = ai_security.wrap_untrusted_content(file_ctx, "USER_UPLOADED_CONTENT")
+                    additional_messages.append({
+                        "role": "user",
+                        "content": f"File context:\n{safe_file}"
+                    })
+            if self.rag_service:
+                rag_context = self.rag_service.get_context_for_decision(
+                    context.get('decision_type', ''), context.get('description', message))
+                if rag_context:
+                    safe_rag = ai_security.wrap_untrusted_content(rag_context, "RESEARCH_DATA")
+                    system = f"{system}\n\n[RESEARCH CONTEXT]:\n{safe_rag}"
+
+        messages = [{"role": "system", "content": system}]
+        messages.extend(additional_messages)
+        messages.extend(memory.get_context(max_messages=config["max_context_messages"]))
+
+        payload = {
+            "model": self.config.model, "messages": messages, "stream": True,
+            "keep_alive": self.config.keep_alive,
+            "options": {
+                "temperature": config["temperature"],
+                "num_predict": config["max_tokens"],
+                "top_p": self.config.top_p,
+                "repeat_penalty": self.config.repeat_penalty,
+                "num_ctx": self.config.num_ctx
+            }
+        }
+
+        full_response = ""
+        try:
+            async with self.client.stream("POST", f"{self.config.base_url}/api/chat", json=payload) as response:
+                if response.status_code != 200:
+                    fallback = self._generate_chat_fallback(message, context)
+                    memory.add_message("assistant", fallback)
+                    yield fallback
+                    return
+                async for line in response.aiter_lines():
+                    if line.strip():
+                        import json as _json
+                        try:
+                            data = _json.loads(line)
+                            token = data.get("message", {}).get("content", "")
+                            if token:
+                                full_response += token
+                                yield token
+                            if data.get("done"):
+                                break
+                        except _json.JSONDecodeError:
+                            continue
+        except Exception:
+            if not full_response:
+                fallback = self._generate_chat_fallback(message, context)
+                memory.add_message("assistant", fallback)
+                yield fallback
+                return
+
+        memory.add_message("assistant", full_response)
 
     def _generate_fallback(self, prompt: str, context: Dict = None) -> str:
         import random

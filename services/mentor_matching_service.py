@@ -129,7 +129,6 @@ class MentorMatchingService:
         }
     
     def _get_expertise_videos(self, mentor: MentorProfile) -> List[Dict]:
-        """Get videos related to mentor's expertise (placeholder for integration)"""
         return []
     
     def add_recommended_videos_to_match(
@@ -138,7 +137,6 @@ class MentorMatchingService:
         mentor_id: str,
         videos: List[Dict]
     ) -> bool:
-        """Add recommended videos to a mentor match"""
         match = next((m for m in self.matches if m.user_id == user_id and m.mentor_id == mentor_id), None)
         if not match:
             return False
@@ -152,7 +150,6 @@ class MentorMatchingService:
         mentor_id: str,
         resources: List[Dict]
     ) -> bool:
-        """Add learning resources to a mentor match"""
         match = next((m for m in self.matches if m.user_id == user_id and m.mentor_id == mentor_id), None)
         if not match:
             return False

@@ -273,7 +273,6 @@ class FileUploadService:
             import cv2
             import io
             
-            # Save to temporary file for analysis
             temp_path = self.upload_dir / f"temp_{filename}"
             with open(temp_path, 'wb') as f:
                 f.write(content)
@@ -293,7 +292,6 @@ class FileUploadService:
             info += f"Resolution: {width}x{height}\n"
             info += f"FPS: {fps:.2f}\n"
             
-            # Clean up temp file
             try:
                 temp_path.unlink()
             except:
@@ -330,12 +328,10 @@ class FileUploadService:
             user_context.context_summary = summary
 
     async def train_system_with_media(self, user_id: str, media_source) -> bool:
-        """Automatically train the system with content from media uploads"""
         try:
             from services.rag_service import RAGService
             from services.fine_tuning_service import fine_tuning_service
             
-            # Add to RAG knowledge base
             rag_service = RAGService()
             
             if media_source.extracted_content:
@@ -348,24 +344,21 @@ class FileUploadService:
                 )
                 
                 if success and media_source.transcript:
-                    # Also add transcript chunks for better retrieval
                     rag_service.add_transcript_chunks(
                         video_id=media_source.id,
                         transcript=media_source.transcript,
                         title=media_source.title
                     )
             
-            # Collect training pair if high quality content
             if media_source.extracted_content and len(media_source.extracted_content) > 100:
                 training_content = media_source.extracted_content[:1000]
                 training_completion = f"Summary: This {media_source.source_type} contains: {media_source.description[:200]}"
                 
-                # Collect training data (use moderate score as it's automated)
                 fine_tuning_service.collect_training_pair(
                     user_id=user_id,
                     prompt=f"Process this content: {media_source.title}",
                     completion=training_completion,
-                    feedback_score=4  # Moderate score for auto-collected data
+                    feedback_score=4
                 )
             
             return True
@@ -392,7 +385,6 @@ class FileUploadService:
             
             media_source = await media_ingestion_service.process_url(url, user_id)
             
-            # Add to user context
             user_context = self.get_user_context(user_id)
             
             if media_source.extracted_content:
@@ -417,7 +409,6 @@ class FileUploadService:
             }
 
     async def process_video_file_input(self, file_content: bytes, filename: str, user_id: str) -> Dict:
-        """Process video file for training"""
         try:
             from services.media_ingestion_service import media_ingestion_service
             
@@ -425,7 +416,6 @@ class FileUploadService:
                 file_content, filename, user_id
             )
             
-            # Add to user context
             user_context = self.get_user_context(user_id)
             
             if media_source.extracted_content:

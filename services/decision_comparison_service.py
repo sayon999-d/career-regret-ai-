@@ -6,7 +6,6 @@ import statistics
 
 @dataclass
 class ComparisonOption:
-    """Represents an option in a decision comparison"""
     id: str
     title: str
     description: str
@@ -19,7 +18,6 @@ class ComparisonOption:
 
 
 class DecisionComparisonService:
-    """Service for comparing multiple decision options"""
     
     def __init__(self):
         self.default_criteria = [
@@ -38,7 +36,6 @@ class DecisionComparisonService:
         options: List[Dict],
         criteria: List[Dict] = None
     ) -> Dict:
-        """Create a new decision comparison"""
         comparison_id = f"cmp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
         
         if not criteria:
@@ -62,7 +59,6 @@ class DecisionComparisonService:
         comparison: Dict,
         option_scores: Dict[str, Dict[str, float]]
     ) -> Dict:
-        """Evaluate options based on criteria scores"""
         criteria = comparison.get("criteria", self.default_criteria)
         options = comparison.get("options", [])
         
@@ -124,7 +120,6 @@ class DecisionComparisonService:
         results: List[Dict],
         criteria: List[Dict]
     ) -> List[Dict]:
-        """Generate insights from comparison results"""
         insights = []
         
         if len(results) < 2:
@@ -181,7 +176,6 @@ class DecisionComparisonService:
         option_scores: Dict[str, Dict[str, float]],
         scenario_changes: Dict[str, float]
     ) -> Dict:
-        """Perform what-if analysis by adjusting criteria weights"""
         modified_comparison = comparison.copy()
         modified_criteria = []
         
@@ -204,7 +198,6 @@ class DecisionComparisonService:
         comparison: Dict,
         option_scores: Dict[str, Dict[str, float]]
     ) -> Dict:
-        """Analyze how sensitive the results are to weight changes"""
         base_results = self.evaluate_options(comparison, option_scores)
         base_winner = base_results["results"][0]["option_id"] if base_results["results"] else None
         
@@ -236,7 +229,6 @@ class DecisionComparisonService:
         }
     
     def compare_pros_cons(self, options: List[Dict]) -> Dict:
-        """Compare pros and cons across options"""
         all_pros = []
         all_cons = []
         
@@ -277,7 +269,6 @@ class DecisionComparisonService:
         }
     
     def generate_recommendation(self, evaluation: Dict) -> Dict:
-        """Generate a final recommendation based on evaluation"""
         results = evaluation.get("results", [])
         
         if not results:
@@ -309,7 +300,6 @@ class DecisionComparisonService:
         all_results: List[Dict],
         insights: List[Dict]
     ) -> str:
-        """Generate human-readable rationale"""
         strengths = []
         
         for breakdown in top_option.get("score_breakdown", []):
@@ -326,7 +316,6 @@ class DecisionComparisonService:
         return rationale
     
     def _generate_caveats(self, top_option: Dict, all_results: List[Dict]) -> List[str]:
-        """Generate caveats for the recommendation"""
         caveats = []
         
         if top_option["predicted_regret"] > 30:

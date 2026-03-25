@@ -11,7 +11,6 @@ class FineTuningService:
         self.is_finetuned_active = False
 
     def collect_training_pair(self, user_id: str, prompt: str, completion: str, feedback_score: int):
-        """Collect high-quality interactions for future fine-tuning."""
         if feedback_score < 4:
             return
 
@@ -28,7 +27,6 @@ class FineTuningService:
             f.write(json.dumps(entry) + "\n")
 
     def toggle_finetuned_model(self, active: bool):
-        """Mock method to toggle between base and fine-tuned logic."""
         self.is_finetuned_active = active
         self.current_model = "finetuned-career-expert-v1" if active else "base-career-model"
         return self.current_model

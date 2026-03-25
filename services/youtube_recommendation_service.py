@@ -6,7 +6,6 @@ from enum import Enum
 
 
 class VideoCategory(Enum):
-    """YouTube video categories for mentor matching"""
     CAREER_DEVELOPMENT = "career_development"
     TECHNICAL_SKILLS = "technical_skills"
     LEADERSHIP = "leadership"
@@ -21,7 +20,6 @@ class VideoCategory(Enum):
 
 @dataclass
 class YouTubeVideo:
-    """Represents a YouTube video recommendation"""
     video_id: str
     title: str
     channel: str
@@ -41,7 +39,6 @@ class YouTubeVideo:
 
 @dataclass
 class UserProfile:
-    """User profile for recommendation engine"""
     user_id: str
     expertise: List[str]
     industry: str
@@ -55,10 +52,6 @@ class UserProfile:
 
 
 class YouTubeRecommendationService:
-    """
-    Service for recommending YouTube videos based on mentor matching,
-    user profile, usage patterns, and career development needs.
-    """
     
     def __init__(self):
         self.videos_db: Dict[str, YouTubeVideo] = self._initialize_video_database()
@@ -67,7 +60,6 @@ class YouTubeRecommendationService:
         self.cache_ttl: timedelta = timedelta(hours=24)
         
     def _initialize_video_database(self) -> Dict[str, YouTubeVideo]:
-        """Initialize database with sample YouTube videos"""
         videos = [
             YouTubeVideo(
                 video_id="vid_001",
@@ -308,13 +300,6 @@ class YouTubeRecommendationService:
         user_goals: Optional[List[str]] = None,
         limit: int = 8
     ) -> List[YouTubeVideo]:
-        """
-        Get personalized YouTube video recommendations based on:
-        - Mentor's expertise areas
-        - User's career goals
-        - User's skill gaps
-        - User's learning history
-        """
         cache_key = f"{user_id}_mentor_rec"
         
         if cache_key in self.recommendation_cache:
@@ -358,7 +343,6 @@ class YouTubeRecommendationService:
         mentor_industry: str,
         limit: int = 6
     ) -> List[YouTubeVideo]:
-        """Get videos specifically related to mentor's expertise"""
         keywords_to_match = set(mentor_expertise)
         keywords_to_match.add(mentor_industry.lower())
         
@@ -389,7 +373,6 @@ class YouTubeRecommendationService:
         target_skills: List[str],
         limit: int = 6
     ) -> List[YouTubeVideo]:
-        """Get videos to help bridge skill gaps"""
         skill_gaps = set(target_skills) - set(current_skills)
         keywords_to_match = skill_gaps
         
@@ -415,7 +398,6 @@ class YouTubeRecommendationService:
         industry: str,
         limit: int = 6
     ) -> List[YouTubeVideo]:
-        """Get trending videos in a specific industry"""
         industry_keywords = {industry.lower(), "industry", "trends", "future"}
         
         video_scores: Dict[str, tuple] = {}
@@ -443,7 +425,6 @@ class YouTubeRecommendationService:
         current_level: str = "beginner",
         limit: int = 10
     ) -> List[YouTubeVideo]:
-        """Get structured learning path videos for a career goal"""
         goal_keywords = set(career_goal.lower().split())
         
         video_scores: Dict[str, tuple] = {}
@@ -477,7 +458,6 @@ class YouTubeRecommendationService:
         keywords: set,
         user_id: str
     ) -> float:
-        """Calculate relevance score for a video"""
         score = 0.0
         
         matched_keywords = set(video.keywords) & keywords
@@ -505,7 +485,6 @@ class YouTubeRecommendationService:
         return score
     
     def mark_video_watched(self, user_id: str, video_id: str) -> bool:
-        """Mark a video as watched by user"""
         if user_id not in self.user_profiles:
             self.user_profiles[user_id] = UserProfile(
                 user_id=user_id,
@@ -517,21 +496,18 @@ class YouTubeRecommendationService:
         if video_id in self.videos_db:
             self.videos_db[video_id].watched = True
             self.user_profiles[user_id].watched_videos.append(video_id)
-            # Invalidate cache
             self._invalidate_user_cache(user_id)
             return True
         
         return False
     
     def save_video_for_later(self, user_id: str, video_id: str) -> bool:
-        """Save video to watch later"""
         if video_id in self.videos_db:
             self.videos_db[video_id].watch_later = True
             return True
         return False
     
     def rate_video(self, user_id: str, video_id: str, rating: float) -> bool:
-        """Rate a video (1-5 stars)"""
         if video_id in self.videos_db and 1.0 <= rating <= 5.0:
             self.videos_db[video_id].rating = rating
             self._invalidate_user_cache(user_id)
@@ -539,7 +515,6 @@ class YouTubeRecommendationService:
         return False
     
     def get_watch_history(self, user_id: str, limit: int = 10) -> List[YouTubeVideo]:
-        """Get user's watch history"""
         if user_id not in self.user_profiles:
             return []
         
@@ -552,7 +527,6 @@ class YouTubeRecommendationService:
         return watched_videos[-limit:]
     
     def get_watch_later_list(self, user_id: str) -> List[YouTubeVideo]:
-        """Get user's watch later list"""
         if user_id not in self.user_profiles:
             return []
         return [
@@ -561,21 +535,17 @@ class YouTubeRecommendationService:
         ]
     
     def _invalidate_user_cache(self, user_id: str):
-        """Invalidate cache for a user"""
         cache_key = f"{user_id}_mentor_rec"
         if cache_key in self.recommendation_cache:
             del self.recommendation_cache[cache_key]
     
     def get_video_by_id(self, video_id: str) -> Optional[YouTubeVideo]:
-        """Get a specific video by ID"""
         return self.videos_db.get(video_id)
     
     def get_all_categories(self) -> List[str]:
-        """Get all available video categories"""
         return [cat.value for cat in VideoCategory]
     
     def search_videos(self, query: str, limit: int = 10) -> List[YouTubeVideo]:
-        """Search videos by keyword or title"""
         query_lower = query.lower()
         results: List[YouTubeVideo] = []
         

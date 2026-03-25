@@ -101,20 +101,21 @@ _engine = None
 _async_engine = None
 _SessionLocal = None
 
-def get_engine(database_url: str = "sqlite:///./career_regret.db"):
+def get_engine(database_url: str = "postgresql://localhost:5432/career_regret_ai"):
     global _engine
     if _engine is None:
-        _engine = create_engine(database_url, connect_args={"check_same_thread": False} if "sqlite" in database_url else {})
+        _engine = create_engine(database_url)
     return _engine
 
-def init_db(database_url: str = "sqlite:///./career_regret.db"):
+def init_db(database_url: str = "postgresql://localhost:5432/career_regret_ai"):
     engine = get_engine(database_url)
     Base.metadata.create_all(bind=engine)
     return engine
 
-def get_session(database_url: str = "sqlite:///./career_regret.db"):
+def get_session(database_url: str = "postgresql://localhost:5432/career_regret_ai"):
     global _SessionLocal
     if _SessionLocal is None:
         engine = get_engine(database_url)
         _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return _SessionLocal()
+

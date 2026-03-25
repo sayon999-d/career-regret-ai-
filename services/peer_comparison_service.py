@@ -224,6 +224,13 @@ class PeerComparisonService:
             "insights": self._generate_peer_insights(profile, peer_outcomes, most_common)
         }
 
+    def get_user_profile(self, user_id: str) -> Optional[AnonymousProfile]:
+        """Get the registered peer profile for a user (for syncing to career feed)"""
+        profile_hash = self.user_profile_map.get(user_id)
+        if profile_hash:
+            return self.anonymous_profiles.get(profile_hash)
+        return None
+
     def _find_similar_peers(self, profile: AnonymousProfile) -> List[AnonymousProfile]:
         peers = []
         for p in self.anonymous_profiles.values():

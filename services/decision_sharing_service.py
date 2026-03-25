@@ -9,7 +9,6 @@ class DecisionSharingService:
         self.expirations: Dict[str, datetime] = {}
 
     def share_decision(self, decision_data: Dict[str, Any], expiry_days: int = 7) -> str:
-        """Create a shared link for a decision."""
         alphabet = string.ascii_letters + string.digits
         short_code = ''.join(secrets.choice(alphabet) for _ in range(8))
 
@@ -19,7 +18,6 @@ class DecisionSharingService:
         return short_code
 
     def get_shared_decision(self, short_code: str) -> Optional[Dict]:
-        """Retrieve a shared decision if not expired."""
         if short_code not in self.shared_decisions:
             return None
 

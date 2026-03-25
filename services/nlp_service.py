@@ -520,7 +520,6 @@ class NLPService:
         )
 
     def _normalize_context(self, text: str, context: Dict) -> str:
-        """Context normalization for improved understanding"""
         industry = context.get('industry', 'general')
         role = context.get('role', 'person')
 
@@ -533,7 +532,6 @@ class NLPService:
         return text
 
     def get_tone_adaptation(self, emotion_state: str) -> str:
-        """Adapt tone based on emotional state"""
         if emotion_state in ['stress', 'fear', 'anxiety']:
             return "empathetic_and_calm"
         elif emotion_state in ['anger', 'frustration']:
@@ -544,7 +542,6 @@ class NLPService:
             return "professional_and_balanced"
 
     def analyze_ambiguity(self, text: str) -> Dict[str, Any]:
-        """Handle incomplete or noisy inputs by detecting ambiguity"""
         ambiguous_phrases = ["maybe", "sort of", "kinda", "I think", "not sure"]
         found = [p for p in ambiguous_phrases if p in text.lower()]
 

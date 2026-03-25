@@ -20,7 +20,6 @@ except ImportError:
 
 
 class EnhancedEmotionService:
-    """Enhanced emotion detection using DeepFace or fallback"""
     
     EMOTION_LABELS = {
         'angry': {'label': 'Angry', 'color': '#ef4444', 'icon': '😠'},
@@ -39,7 +38,6 @@ class EnhancedEmotionService:
         self.emotion_history: Dict[str, List[Dict]] = {}
     
     def detect_emotion_from_base64(self, image_base64: str) -> Dict:
-        """Detect emotions from base64 encoded image"""
         try:
             if ',' in image_base64:
                 image_base64 = image_base64.split(',')[1]
@@ -59,7 +57,6 @@ class EnhancedEmotionService:
             }
     
     def _detect_with_deepface(self, image_data: bytes) -> Dict:
-        """Use DeepFace for real emotion detection"""
         try:
             nparr = np.frombuffer(image_data, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -93,7 +90,6 @@ class EnhancedEmotionService:
             return self._detect_fallback(image_data)
     
     def _parse_deepface_result(self, result: Dict) -> Dict:
-        """Parse DeepFace result into standardized format"""
         emotion_scores = result.get('emotion', {})
         dominant_emotion = result.get('dominant_emotion', 'neutral')
         
@@ -121,7 +117,6 @@ class EnhancedEmotionService:
         }
     
     def _detect_fallback(self, image_data: bytes) -> Dict:
-        """Fallback emotion detection (simulated for demo)"""
         import random
         
         emotions = list(self.EMOTION_LABELS.keys())
@@ -161,7 +156,6 @@ class EnhancedEmotionService:
         }
     
     def record_emotion(self, user_id: str, emotion_data: Dict, context: str = None):
-        """Record emotion for trend analysis"""
         if user_id not in self.emotion_history:
             self.emotion_history[user_id] = []
         
@@ -178,7 +172,6 @@ class EnhancedEmotionService:
             self.emotion_history[user_id] = self.emotion_history[user_id][-100:]
     
     def get_emotion_trends(self, user_id: str) -> Dict:
-        """Get emotion trends for a user"""
         history = self.emotion_history.get(user_id, [])
         
         if not history:
@@ -210,7 +203,6 @@ class EnhancedEmotionService:
         }
     
     def analyze_decision_emotion_correlation(self, user_id: str, decisions: List[Dict]) -> Dict:
-        """Analyze correlation between emotions and decision outcomes"""
         emotion_outcomes = {}
         
         for decision in decisions:
@@ -260,7 +252,6 @@ class EnhancedEmotionService:
         }
     
     def get_service_status(self) -> Dict:
-        """Get status of emotion detection capabilities"""
         return {
             "deepface_available": self.deepface_available,
             "cv2_available": self.cv2_available,

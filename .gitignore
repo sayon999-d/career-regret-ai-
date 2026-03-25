@@ -70,3 +70,6 @@ htmlcov/
 # Build
 dist/
 build/
+
+# Local database
+data/*.db

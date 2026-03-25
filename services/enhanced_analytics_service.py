@@ -8,13 +8,11 @@ from .database_service import db_service
 
 
 class EnhancedAnalyticsService:
-    """Comprehensive analytics and insights service"""
     
     def __init__(self):
         pass
     
     def get_dashboard_analytics(self, user_id: str) -> Dict:
-        """Get comprehensive dashboard analytics"""
         return {
             "overview": self.get_overview_stats(user_id),
             "decision_patterns": self.get_decision_patterns(user_id),
@@ -25,7 +23,6 @@ class EnhancedAnalyticsService:
         }
     
     def get_overview_stats(self, user_id: str) -> Dict:
-        """Get high-level overview statistics"""
         decisions, total = db_service.get_decisions(user_id, limit=10000)
         
         if not decisions:
@@ -88,7 +85,6 @@ class EnhancedAnalyticsService:
         }
     
     def get_decision_patterns(self, user_id: str) -> Dict:
-        """Analyze decision-making patterns"""
         decisions, _ = db_service.get_decisions(user_id, limit=10000)
         
         if not decisions:
@@ -147,7 +143,6 @@ class EnhancedAnalyticsService:
         }
     
     def get_emotion_analysis(self, user_id: str) -> Dict:
-        """Analyze emotions associated with decisions"""
         decisions, _ = db_service.get_decisions(user_id, limit=10000)
         
         emotion_counts = defaultdict(int)
@@ -198,7 +193,6 @@ class EnhancedAnalyticsService:
         }
     
     def get_regret_trends(self, user_id: str) -> Dict:
-        """Analyze regret prediction vs actual over time"""
         decisions, _ = db_service.get_decisions(user_id, limit=10000)
         
         weekly_data = defaultdict(lambda: {"predicted": [], "actual": []})
@@ -239,7 +233,6 @@ class EnhancedAnalyticsService:
         }
     
     def get_activity_heatmap(self, user_id: str) -> Dict:
-        """Generate activity heatmap data"""
         decisions, _ = db_service.get_decisions(user_id, limit=10000)
         events = db_service.get_calendar_events(user_id)
         
@@ -276,7 +269,6 @@ class EnhancedAnalyticsService:
         }
     
     def get_personalized_recommendations(self, user_id: str) -> List[Dict]:
-        """Generate personalized recommendations based on user patterns"""
         recommendations = []
         
         decisions, _ = db_service.get_decisions(user_id, limit=10000)
@@ -333,7 +325,6 @@ class EnhancedAnalyticsService:
         return recommendations[:5]
     
     def generate_report(self, user_id: str, report_type: str = "monthly") -> Dict:
-        """Generate comprehensive report"""
         analytics = self.get_dashboard_analytics(user_id)
         
         report = {
@@ -352,7 +343,6 @@ class EnhancedAnalyticsService:
         return report
     
     def _get_report_period(self, report_type: str) -> Dict:
-        """Get report period based on type"""
         now = datetime.utcnow()
         
         if report_type == "weekly":
@@ -371,7 +361,6 @@ class EnhancedAnalyticsService:
         }
     
     def _generate_narrative(self, report: Dict) -> str:
-        """Generate human-readable narrative summary"""
         summary = report.get("summary", {})
         trends = report.get("trends", {})
         
@@ -387,16 +376,16 @@ During this period, you tracked **{total} decisions** with an average predicted 
 """
         
         if accuracy > 70:
-            narrative += f"\n- ✅ Excellent prediction accuracy at {accuracy}%! You have good self-awareness."
+            narrative += f"\n- Excellent prediction accuracy at {accuracy}%! You have good self-awareness."
         elif accuracy > 50:
-            narrative += f"\n- 📊 Moderate prediction accuracy at {accuracy}%. Consider tracking more outcomes."
+            narrative += f"\n- Moderate prediction accuracy at {accuracy}%. Consider tracking more outcomes."
         else:
-            narrative += f"\n- ⚠️ Prediction accuracy is {accuracy}%. More outcome tracking will help calibrate predictions."
+            narrative += f"\n- Prediction accuracy is {accuracy}%. More outcome tracking will help calibrate predictions."
         
         if improving:
-            narrative += f"\n- 📈 Your regret predictions are improving over time. Great progress!"
+            narrative += f"\n- Your regret predictions are improving over time. Great progress!"
         else:
-            narrative += f"\n- 📉 Consider reviewing past decisions to improve future predictions."
+            narrative += f"\n- Consider reviewing past decisions to improve future predictions."
         
         recommendations = report.get("recommendations", [])
         if recommendations:
@@ -407,5 +396,4 @@ During this period, you tracked **{total} decisions** with an average predicted 
         return narrative
 
 
-# Global instance
 enhanced_analytics_service = EnhancedAnalyticsService()

@@ -24,7 +24,6 @@ except ImportError:
 
 @dataclass
 class MediaSource:
-    """Represents a media source (video, URL, etc.)"""
     id: str
     source_type: str
     original_url: str
@@ -43,7 +42,6 @@ class MediaSource:
 
 
 class MediaIngestionService:
-    """Service for handling video and URL uploads for training"""
     
     MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024
     MAX_URL_SIZE = 500 * 1024 * 1024 
@@ -61,13 +59,11 @@ class MediaIngestionService:
         self.processing_queue: asyncio.Queue = asyncio.Queue()
     
     def _generate_media_id(self, content: str, source_type: str) -> str:
-        """Generate unique ID for media source"""
         hash_content = hashlib.sha256(content.encode()).hexdigest()[:16]
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         return f"{source_type}_{timestamp}_{hash_content}"
     
     def _is_valid_url(self, url: str) -> bool:
-        """Validate URL format"""
         try:
             result = urlparse(url)
             return all([result.scheme in ['http', 'https'], result.netloc])
@@ -75,11 +71,9 @@ class MediaIngestionService:
             return False
     
     def _is_youtube_url(self, url: str) -> bool:
-        """Check if URL is YouTube"""
         return any(domain in url for domain in ['youtube.com', 'youtu.be', 'youtube-nocookie.com'])
     
     def _extract_youtube_id(self, url: str) -> Optional[str]:
-        """Extract YouTube video ID from URL"""
         patterns = [
             r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)',
             r'youtube\.com\/embed\/([^&\n?#]+)',
@@ -94,7 +88,6 @@ class MediaIngestionService:
         return None
     
     async def process_url(self, url: str, user_id: str) -> MediaSource:
-        """Process and download content from a URL"""
         if not self._is_valid_url(url):
             raise ValueError(f"Invalid URL format: {url}")
         
@@ -131,7 +124,6 @@ class MediaIngestionService:
         return media_source
     
     async def _process_youtube(self, url: str, user_id: str) -> MediaSource:
-        """Process YouTube video"""
         if not HAS_YOUTUBE_DL:
             raise RuntimeError("yt-dlp not installed. Install with: pip install yt-dlp")
         
@@ -186,7 +178,6 @@ class MediaIngestionService:
             raise Exception(f"Failed to process YouTube video: {str(e)}")
     
     async def _extract_youtube_transcript(self, url: str) -> str:
-        """Extract transcript from YouTube video"""
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
             
@@ -215,7 +206,6 @@ class MediaIngestionService:
             return ""
     
     async def _process_generic_url(self, url: str, user_id: str) -> MediaSource:
-        """Process generic URL and extract text content"""
         media_id = self._generate_media_id(url, "url")
         
         try:
@@ -258,7 +248,6 @@ class MediaIngestionService:
             raise Exception(f"Failed to process URL: {str(e)}")
     
     async def _extract_url_content(self, content: bytes, content_type: str, url: str) -> str:
-        """Extract text content from URL"""
         extracted = f"Source: {url}\n\n"
         
         try:
@@ -312,7 +301,6 @@ class MediaIngestionService:
         return extracted
     
     async def process_video_file(self, file_content: bytes, filename: str, user_id: str) -> MediaSource:
-        """Process uploaded video file"""
         if len(file_content) > self.MAX_FILE_SIZE:
             raise ValueError(f"File size exceeds maximum of {self.MAX_FILE_SIZE // (1024*1024)}MB")
         
@@ -373,7 +361,6 @@ class MediaIngestionService:
         return media_source
     
     async def _extract_video_metadata(self, file_path: Path) -> Tuple[int, float, str]:
-        """Extract video metadata"""
         try:
             import cv2
             
@@ -396,7 +383,6 @@ class MediaIngestionService:
             return 0, 0, "unknown"
     
     async def _extract_video_audio_transcript(self, file_path: Path) -> str:
-        """Extract audio from video and generate transcript"""
         try:
             import subprocess
             
@@ -431,7 +417,6 @@ class MediaIngestionService:
         return ""
     
     async def _transcribe_audio(self, audio_path: Path) -> str:
-        """Transcribe audio file"""
         try:
             from openai import OpenAI
             
@@ -460,15 +445,12 @@ class MediaIngestionService:
             return ""
     
     def get_media_info(self, media_id: str) -> Optional[MediaSource]:
-        """Get information about a media source"""
         return self.media_db.get(media_id)
     
     def get_user_media(self, user_id: str) -> List[MediaSource]:
-        """Get all media sources for a user"""
         return self.user_media.get(user_id, [])
     
     def get_extracted_content(self, user_id: str, max_items: int = 5) -> List[str]:
-        """Get extracted content from user's media for training"""
         user_media = self.get_user_media(user_id)
         content_list = []
         
@@ -479,7 +461,6 @@ class MediaIngestionService:
         return content_list
     
     def get_statistics(self) -> Dict[str, Any]:
-        """Get service statistics"""
         total_media = len(self.media_db)
         by_type = {}
         for media in self.media_db.values():

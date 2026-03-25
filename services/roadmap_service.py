@@ -6,7 +6,6 @@ class RoadmapService:
         self.roadmaps: Dict[str, Dict] = {}
 
     def generate_roadmap(self, user_id: str, target_role: str, gap_skills: List[str]) -> Dict[str, Any]:
-        """Generates a career progression roadmap based on identified skill gaps."""
 
         milestones = []
 

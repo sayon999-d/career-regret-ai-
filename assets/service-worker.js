@@ -1,20 +1,14 @@
-// Career Decision AI - Service Worker
-// Enables offline functionality and caching for PWA
+const CACHE_NAME = 'career-ai-v3';
+const STATIC_CACHE = 'career-ai-static-v3';
+const DYNAMIC_CACHE = 'career-ai-dynamic-v3';
 
-const CACHE_NAME = 'career-ai-v2';
-const STATIC_CACHE = 'career-ai-static-v2';
-const DYNAMIC_CACHE = 'career-ai-dynamic-v2';
-
-// Resources to cache immediately on install
 const STATIC_ASSETS = [
-    '/',
     '/manifest.json',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
     'https://d3js.org/d3.v7.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
 ];
 
-// API endpoints that should work offline with cached data
 const CACHEABLE_API_PATTERNS = [
     '/api/templates',
     '/api/journal',
@@ -22,7 +16,6 @@ const CACHEABLE_API_PATTERNS = [
     '/api/goals'
 ];
 
-// Install event - cache static assets
 self.addEventListener('install', (event) => {
     console.log('[Service Worker] Installing...');
 
@@ -42,7 +35,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
     console.log('[Service Worker] Activating...');
 
@@ -65,32 +57,29 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
-
-    // Skip non-GET requests and non-http/https schemes
     if (request.method !== 'GET' || !url.protocol.startsWith('http')) {
         return;
     }
 
-    // Handle API requests
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(handleApiRequest(request));
         return;
     }
-
-    // Handle static assets with cache-first strategy
     event.respondWith(handleStaticRequest(request));
 });
 
-// Cache-first strategy for static assets
 async function handleStaticRequest(request) {
+    const acceptsHtml = request.headers.get('accept')?.includes('text/html');
+    if (request.mode === 'navigate' || acceptsHtml) {
+        return handleNavigationRequest(request);
+    }
+
     const cachedResponse = await caches.match(request);
 
     if (cachedResponse) {
-        // Return cached version and update in background
         updateCacheInBackground(request);
         return cachedResponse;
     }
@@ -105,7 +94,6 @@ async function handleStaticRequest(request) {
 
         return networkResponse;
     } catch (error) {
-        // Return offline page if available
         return caches.match('/offline.html') || new Response('Offline', {
             status: 503,
             statusText: 'Service Unavailable'
@@ -113,7 +101,17 @@ async function handleStaticRequest(request) {
     }
 }
 
-// Network-first strategy for API requests
+async function handleNavigationRequest(request) {
+    try {
+        return await fetch(request, { cache: 'no-store' });
+    } catch (error) {
+        return caches.match(request) || new Response('Offline', {
+            status: 503,
+            statusText: 'Service Unavailable'
+        });
+    }
+}
+
 async function handleApiRequest(request) {
     const url = new URL(request.url);
     const isCacheable = CACHEABLE_API_PATTERNS.some(pattern =>
@@ -130,20 +128,16 @@ async function handleApiRequest(request) {
 
         return networkResponse;
     } catch (error) {
-        // Try to return cached API response (return a clone to avoid locked body streams)
         if (isCacheable) {
             const cachedResponse = await caches.match(request);
             if (cachedResponse) {
                 try {
                     return cachedResponse.clone();
                 } catch (e) {
-                    // Fallback: return original cached response if clone fails
                     return cachedResponse;
                 }
             }
         }
-
-        // Return error response for API
         return new Response(JSON.stringify({
             error: 'offline',
             message: 'You are currently offline. Please check your connection.'
@@ -154,7 +148,6 @@ async function handleApiRequest(request) {
     }
 }
 
-// Update cache in background (stale-while-revalidate)
 async function updateCacheInBackground(request) {
     try {
         const networkResponse = await fetch(request);
@@ -164,11 +157,9 @@ async function updateCacheInBackground(request) {
             await cache.put(request, networkResponse);
         }
     } catch (error) {
-        // Silently fail - we already served from cache
     }
 }
 
-// Handle push notifications
 self.addEventListener('push', (event) => {
     console.log('[Service Worker] Push received');
 
@@ -201,7 +192,6 @@ self.addEventListener('push', (event) => {
     );
 });
 
-// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
     console.log('[Service Worker] Notification clicked:', event.action);
 
@@ -216,7 +206,6 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then((clientList) => {
-                // Check if app is already open
                 for (const client of clientList) {
                     if (client.url.includes(self.location.origin) && 'focus' in client) {
                         client.navigate(urlToOpen);
@@ -224,7 +213,6 @@ self.addEventListener('notificationclick', (event) => {
                     }
                 }
 
-                // Open new window
                 if (clients.openWindow) {
                     return clients.openWindow(urlToOpen);
                 }
@@ -232,7 +220,6 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-// Handle background sync
 self.addEventListener('sync', (event) => {
     console.log('[Service Worker] Background sync:', event.tag);
 
@@ -243,22 +230,16 @@ self.addEventListener('sync', (event) => {
     }
 });
 
-// Sync pending decisions when back online
 async function syncPendingDecisions() {
     const cache = await caches.open(DYNAMIC_CACHE);
     const pendingKey = 'pending-decisions';
-
-    // Get pending decisions from IndexedDB or cache
-    // This is a placeholder - would need IndexedDB implementation
     console.log('[Service Worker] Syncing pending decisions...');
 }
 
-// Sync pending journal entries when back online
 async function syncPendingJournalEntries() {
     console.log('[Service Worker] Syncing pending journal entries...');
 }
 
-// Periodic background sync (if supported)
 self.addEventListener('periodicsync', (event) => {
     if (event.tag === 'check-opportunities') {
         event.waitUntil(checkForNewOpportunities());

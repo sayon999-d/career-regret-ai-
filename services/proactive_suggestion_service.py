@@ -60,10 +60,6 @@ class Suggestion:
 
 
 class ProactiveSuggestionService:
-    """
-    Generates personalized, AI-driven suggestions proactively
-    """
-
     SUGGESTION_TEMPLATES = {
         SuggestionType.SKILL_DEVELOPMENT: [
             {
@@ -183,7 +179,6 @@ class ProactiveSuggestionService:
         user_id: str,
         **kwargs
     ) -> UserContext:
-        """Update or create user context for personalization"""
         if user_id in self.user_contexts:
             context = self.user_contexts[user_id]
             for key, value in kwargs.items():
@@ -201,7 +196,6 @@ class ProactiveSuggestionService:
         user_id: str,
         max_suggestions: int = 3
     ) -> List[Dict[str, Any]]:
-        """Generate personalized suggestions for a user"""
         context = self.user_contexts.get(user_id, UserContext(user_id=user_id))
 
         candidates = []
@@ -237,7 +231,6 @@ class ProactiveSuggestionService:
         self,
         context: UserContext
     ) -> List[Suggestion]:
-        """Generate suggestions related to pending decisions"""
         suggestions = []
 
         template = self.SUGGESTION_TEMPLATES[SuggestionType.DECISION_PROMPT][0]
@@ -257,7 +250,6 @@ class ProactiveSuggestionService:
         self,
         context: UserContext
     ) -> List[Suggestion]:
-        """Generate skill development suggestions"""
         suggestions = []
 
         trending_skills = ["AI/ML", "Cloud Computing", "Data Analysis", "Leadership"]
@@ -281,7 +273,6 @@ class ProactiveSuggestionService:
         self,
         context: UserContext
     ) -> List[Suggestion]:
-        """Generate goal-related suggestions"""
         suggestions = []
 
         if context.goals:
@@ -302,7 +293,6 @@ class ProactiveSuggestionService:
         self,
         context: UserContext
     ) -> List[Suggestion]:
-        """Generate bias awareness suggestions"""
         suggestions = []
 
         if context.bias_patterns:
@@ -324,7 +314,6 @@ class ProactiveSuggestionService:
         self,
         context: UserContext
     ) -> List[Suggestion]:
-        """Generate re-engagement suggestions"""
         suggestions = []
 
         template = self.SUGGESTION_TEMPLATES[SuggestionType.REFLECTION][0]
@@ -344,7 +333,6 @@ class ProactiveSuggestionService:
         self,
         context: UserContext
     ) -> List[Suggestion]:
-        """Generate reflection suggestions"""
         suggestions = []
 
         if context.recent_decisions > 3:
@@ -369,7 +357,6 @@ class ProactiveSuggestionService:
         relevance: float = 0.5,
         priority: SuggestionPriority = SuggestionPriority.MEDIUM
     ) -> Suggestion:
-        """Create a suggestion from a template"""
         suggestion_id = hashlib.sha256(
             f"{user_id}{suggestion_type.value}{datetime.utcnow().timestamp()}".encode()
         ).hexdigest()[:12]
@@ -394,7 +381,6 @@ class ProactiveSuggestionService:
         )
 
     def _to_dict(self, suggestion: Suggestion) -> Dict[str, Any]:
-        """Convert suggestion to dictionary"""
         return {
             "id": suggestion.id,
             "type": suggestion.type.value,
@@ -412,7 +398,6 @@ class ProactiveSuggestionService:
         self,
         user_id: str
     ) -> List[Dict[str, Any]]:
-        """Get active (non-dismissed) suggestions for a user"""
         if user_id not in self.suggestions:
             return self.generate_suggestions(user_id)
 
@@ -433,7 +418,6 @@ class ProactiveSuggestionService:
         suggestion_id: str,
         feedback: str = None
     ) -> bool:
-        """Dismiss a suggestion"""
         if user_id not in self.suggestions:
             return False
 
@@ -450,7 +434,6 @@ class ProactiveSuggestionService:
         suggestion_id: str,
         action: str
     ) -> Dict[str, Any]:
-        """Record that user acted on a suggestion"""
         if user_id not in self.suggestions:
             return {"error": "No suggestions found"}
 
@@ -466,7 +449,6 @@ class ProactiveSuggestionService:
         return {"error": "Suggestion not found"}
 
     def get_suggestion_stats(self, user_id: str) -> Dict[str, Any]:
-        """Get suggestion engagement statistics"""
         if user_id not in self.suggestions:
             return {"total": 0, "acted_on": 0, "dismissed": 0}
 
@@ -486,7 +468,6 @@ class ProactiveSuggestionService:
         self,
         suggestions: List[Suggestion]
     ) -> Dict[str, int]:
-        """Get breakdown of suggestions by type"""
         breakdown = {}
         for s in suggestions:
             type_name = s.type.value

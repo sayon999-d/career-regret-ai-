@@ -7,7 +7,6 @@ class KnowledgeService:
         self.documents: Dict[str, List[Dict]] = {}
 
     def add_document(self, user_id: str, filename: str, content: str, doc_type: str = "general") -> Dict:
-        """Saves a document to the user's knowledge base."""
         doc_id = hashlib.sha256(f"{filename}{datetime.utcnow()}".encode()).hexdigest()[:10]
 
         doc = {
