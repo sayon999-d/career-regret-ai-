@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: career-ai-app
-  namespace: career-ai
+  name: stepwise-ai-app
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
     component: app
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: career-ai
+      app: stepwise-ai
       component: app
   strategy:
     type: RollingUpdate
@@ -20,20 +20,20 @@ spec:
   template:
     metadata:
       labels:
-        app: career-ai
+        app: stepwise-ai
         component: app
     spec:
       containers:
-        - name: career-ai
+        - name: stepwise-ai
           image: IMAGE_PLACEHOLDER
           ports:
             - containerPort: 8000
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: career-ai-config
+                name: stepwise-ai-config
             - secretRef:
-                name: career-ai-secrets
+                name: stepwise-ai-secrets
           resources:
             requests:
               memory: "256Mi"
@@ -67,10 +67,10 @@ spec:
       volumes:
         - name: app-data
           persistentVolumeClaim:
-            claimName: career-ai-data-pvc
+            claimName: stepwise-ai-data-pvc
         - name: app-exports
           persistentVolumeClaim:
-            claimName: career-ai-exports-pvc
+            claimName: stepwise-ai-exports-pvc
         - name: app-logs
           emptyDir: {}
 ---
@@ -78,20 +78,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
-  namespace: career-ai
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
     component: redis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: career-ai
+      app: stepwise-ai
       component: redis
   template:
     metadata:
       labels:
-        app: career-ai
+        app: stepwise-ai
         component: redis
     spec:
       containers:
@@ -124,4 +124,4 @@ spec:
       volumes:
         - name: redis-data
           persistentVolumeClaim:
-            claimName: career-ai-redis-pvc
+            claimName: stepwise-ai-redis-pvc

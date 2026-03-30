@@ -1,6 +1,6 @@
 # Documentation
 
-This folder contains comprehensive documentation for the Career Decision Regret AI system.
+This folder contains comprehensive documentation for the StepWise AI system.
 
 ## Documentation Map
 

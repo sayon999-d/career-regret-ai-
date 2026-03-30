@@ -165,7 +165,7 @@ def test_offline_context_awareness():
 
 
 if __name__ == "__main__":
-    print("\nTesting New Career Decision AI Features\n")
+    print("\nTesting New StepWise AI Features\n")
     
     try:
         test_resume_scoring()

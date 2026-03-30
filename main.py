@@ -268,7 +268,7 @@ app_state = AppState()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting Career Decision Regret System...")
+    print("Starting StepWise AI System...")
 
     app_state.ml_predictor = EnhancedRegretPredictor(model_path=settings.MODEL_PATH)
     print("ML/DL Pipeline initialized")
@@ -400,13 +400,13 @@ async def lifespan(app: FastAPI):
     print("All services initialized successfully")
 
     print("=" * 50)
-    print("Career Decision Regret System Ready")
+    print("StepWise AI System Ready")
     print(f"API: http://{settings.HOST}:{settings.PORT}")
     print("=" * 50)
 
     yield
 
-    print("Shutting down Career Decision Regret System...")
+    print("Shutting down StepWise AI System...")
 
     try:
         if app_state.ollama_service:
@@ -505,7 +505,7 @@ if not CORS_ORIGINS:
         CORS_ORIGINS = []
 
 app = FastAPI(
-    title="Career Decision Regret System",
+    title="StepWise AI System",
     version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -591,8 +591,8 @@ LOGIN_HTML = '''<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Career Decision AI - Sign in to your AI-powered career guidance platform">
-    <title>Career Decision AI | Sign In</title>
+    <meta name="description" content="StepWise AI - Sign in to your AI-powered career guidance platform">
+    <title>StepWise AI | Sign In</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -848,7 +848,7 @@ LOGIN_HTML = '''<!DOCTYPE html>
                                 <path d="M49 117.5L88.2 73.3L70.4 67.9C68.1 67.2 68.3 63.8 70.7 63.4L102.8 58.1L118.2 25.5C119.4 22.9 123.3 24.2 122.7 27L112.6 63.2L112.9 97C112.9 100.7 108 102 106.2 98.8L94.2 77.8L55.2 121.1C52.3 124.3 46.2 121.2 49 117.5Z" fill="#19e3a2"/>
                             </svg>
                         </div>
-                        <div class="brand-name">Career Decision AI</div>
+                        <div class="brand-name">StepWise AI</div>
                     </div>
                     <h1>Welcome back</h1>
                     <p>Sign in to continue to your dashboard</p>
@@ -906,7 +906,7 @@ LOGIN_HTML = '''<!DOCTYPE html>
                                 <path d="M49 117.5L88.2 73.3L70.4 67.9C68.1 67.2 68.3 63.8 70.7 63.4L102.8 58.1L118.2 25.5C119.4 22.9 123.3 24.2 122.7 27L112.6 63.2L112.9 97C112.9 100.7 108 102 106.2 98.8L94.2 77.8L55.2 121.1C52.3 124.3 46.2 121.2 49 117.5Z" fill="#19e3a2"/>
                             </svg>
                         </div>
-                        <div class="brand-name">Career Decision AI</div>
+                        <div class="brand-name">StepWise AI</div>
                     </div>
                     <h1>Create account</h1>
                     <p>Start making better career decisions today</p>
@@ -1179,7 +1179,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="AI-powered career decision analysis">
-    <title>Career Decision AI | Professional Guidance</title>
+    <title>StepWise AI | Professional Guidance</title>
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
             document.addEventListener('DOMContentLoaded', () => {
@@ -3385,7 +3385,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                     </svg>
                 </div>
                 <div class="sidebar-brand-copy">
-                    <div class="brand">CAREER DECISION AI</div>
+                    <div class="brand">STEPWISE AI</div>
                     <div class="brand-sub">Professional Guidance Platform</div>
                 </div>
             </div>
@@ -5187,7 +5187,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                 <div class="card" style="margin-bottom:1rem;">
                     <div class="card-header"><div class="card-title">Getting Started</div></div>
                     <div class="card-body" style="line-height:1.8;font-size:0.85rem;color:var(--text-secondary);">
-                        <p>Welcome to <strong style="color:var(--text-primary);">Career Decision AI</strong> — an AI-powered career decision analysis platform. Use the sidebar to navigate between features. Start by chatting with the AI counselor, or explore any feature below.</p>
+                        <p>Welcome to <strong style="color:var(--text-primary);">StepWise AI</strong> — an AI-powered career decision analysis platform. Use the sidebar to navigate between features. Start by chatting with the AI counselor, or explore any feature below.</p>
                         <div style="margin-top:1rem;padding:0.75rem 1rem;background:var(--bg-elevated);border-radius:14px;font-family:monospace;font-size:0.78rem;color:var(--text-muted);">
                             Base URL: <span style="color:var(--text-primary);">http://localhost:8000</span><br>
                             Auth: <span style="color:var(--text-primary);">Bearer token via /api/auth/login</span><br>
@@ -7818,7 +7818,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         exported_at: new Date().toISOString(),
                         user_id: userId,
                         format: format,
-                        app: 'Career Decision Regret AI'
+                        app: 'StepWise AI'
                     }
                 };
 
@@ -7856,7 +7856,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
 
                 } else if (format === 'text') {
                     let textContent = '='.repeat(60) + '\\n';
-                    textContent += '  CAREER DECISION REGRET AI - DATA EXPORT\\n';
+                    textContent += '  STEPWISE AI - DATA EXPORT\\n';
                     textContent += '='.repeat(60) + '\\n\\n';
                     textContent += `Export Date: ${new Date().toLocaleString()}\\n`;
                     textContent += `User ID: ${userId}\\n\\n`;
@@ -7986,7 +7986,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
                         pdfHtml += `<p style="color:#6b7280;">No calendar events.</p>`;
                     }
 
-                    pdfHtml += `<hr style="margin-top:40px;border-color:#e5e7eb;"><p style="color:#9ca3af;font-size:0.8em;text-align:center;">Generated by Career Decision Regret AI</p>`;
+                    pdfHtml += `<hr style="margin-top:40px;border-color:#e5e7eb;"><p style="color:#9ca3af;font-size:0.8em;text-align:center;">Generated by StepWise AI</p>`;
                     pdfHtml += `</body></html>`;
 
                     const pdfWindow = window.open('', '_blank');
@@ -13487,7 +13487,7 @@ async def get_manifest():
         return safe_json_response(manifest)
     except FileNotFoundError:
         return safe_json_response({
-            "name": "Career Decision AI",
+            "name": "StepWise AI",
             "short_name": "CareerAI",
             "start_url": "/",
             "display": "standalone",

@@ -1,6 +1,6 @@
 # Tests Module
 
-Comprehensive testing suite for the Career Decision Regret System. This module contains unit tests, integration tests, and system tests for all components.
+Comprehensive testing suite for the StepWise AI System. This module contains unit tests, integration tests, and system tests for all components.
 
 ## Table of Contents
 

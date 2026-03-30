@@ -36,7 +36,7 @@ class RoadmapService:
             "phase": "Market Readiness",
             "weeks": "9-12",
             "tasks": [f"Update resume with {', '.join(gap_skills)}", "Mock interviews for target role"],
-            "resources": ["Career Decision AI Interview Practice", "Peer Networking"]
+            "resources": ["StepWise AI Interview Practice", "Peer Networking"]
         })
 
         roadmap = {

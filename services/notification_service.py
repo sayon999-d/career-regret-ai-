@@ -244,7 +244,7 @@ Here's your weekly career decision summary:
 
 Keep making thoughtful decisions!
 
-- Career Decision Regret AI
+- StepWise AI
 """
         return self.send_email_notification(user_id, subject, body)
     

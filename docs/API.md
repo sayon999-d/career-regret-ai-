@@ -1,4 +1,4 @@
-# Career Decision Regret AI - API Documentation
+# StepWise AI - API Documentation
 
 ## Base URL
 

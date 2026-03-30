@@ -13,7 +13,7 @@ env:
   ENCRYPTION_KEY: "ci_test_encryption_key_not_for_production_use_only_testing"
   DEBUG: "true"
   REGISTRY: ghcr.io
-  IMAGE_NAME: "sayon999-d/career-regret-ai"
+  IMAGE_NAME: "sayon999-d/StepwiseAI"
 
 permissions:
   contents: read

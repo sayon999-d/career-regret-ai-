@@ -15,17 +15,17 @@ except ImportError:
     except ImportError:
         psycopg2 = None
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/career_regret_ai")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/stepwise_ai")
 
 def _resolve_sqlite_path():
-    primary = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'career_ai.db')
+    primary = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'stepwise_ai.db')
     try:
         conn = sqlite3.connect(primary)
         conn.execute("SELECT 1")
         conn.close()
         return primary
     except Exception:
-        fallback = os.path.join('/tmp', 'career_ai.db')
+        fallback = os.path.join('/tmp', 'stepwise_ai.db')
         return fallback
 
 SQLITE_PATH = _resolve_sqlite_path()

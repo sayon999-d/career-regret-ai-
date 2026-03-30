@@ -44,7 +44,7 @@ class Settings(BaseModel):
     OLLAMA_MODEL: str = _env("OLLAMA_MODEL", "llama3.2")
     OLLAMA_TIMEOUT: int = _env_int("OLLAMA_TIMEOUT", 120)
 
-    DATABASE_URL: str = _env("DATABASE_URL", "postgresql://localhost:5432/career_regret_ai")
+    DATABASE_URL: str = _env("DATABASE_URL", "postgresql://localhost:5432/stepwise_ai")
 
     MODEL_PATH: str = _env("MODEL_PATH", "./models")
     ML_LEARNING_RATE: float = _env_float("ML_LEARNING_RATE", 0.001)

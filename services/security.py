@@ -705,7 +705,7 @@ class SecureUser:
 class HardenedAuthService:
     @staticmethod
     def _resolve_db_path():
-        primary = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'career_ai_users.db')
+        primary = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'stepwise_ai_users.db')
         try:
             import sqlite3 as _sq
             _conn = _sq.connect(primary)
@@ -713,7 +713,7 @@ class HardenedAuthService:
             _conn.close()
             return primary
         except Exception:
-            fallback = os.path.join('/tmp', 'career_ai_users.db')
+            fallback = os.path.join('/tmp', 'stepwise_ai_users.db')
             print(f"[AuthService] Primary DB path unavailable, using fallback: {fallback}")
             return fallback
 

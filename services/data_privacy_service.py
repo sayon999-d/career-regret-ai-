@@ -241,7 +241,7 @@ class DataPrivacyService:
 DATA EXPORT README
 ==================
 
-This archive contains your personal data exported from Career Decision Regret AI.
+This archive contains your personal data exported from StepWise AI.
 
 Files included:
 - user_data.json: All your personal data in JSON format

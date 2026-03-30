@@ -142,7 +142,7 @@ class ExportImportService:
         ics_lines = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
-            "PRODID:-//Career Decision Regret AI//EN",
+            "PRODID:-//StepWise AI//EN",
             "CALSCALE:GREGORIAN",
             "METHOD:PUBLISH"
         ]
@@ -162,7 +162,7 @@ class ExportImportService:
             
             ics_lines.extend([
                 "BEGIN:VEVENT",
-                f"UID:{event.get('id', secrets.token_hex(8))}@careerdecisionai.local",
+                f"UID:{event.get('id', secrets.token_hex(8))}@stepwiseai.local",
                 f"DTSTART:{format_ics_date(start_time)}",
                 f"DTEND:{format_ics_date(end_time)}",
                 f"SUMMARY:{event.get('title', 'Untitled Event')}",
@@ -230,7 +230,7 @@ class ExportImportService:
                 ics_result = self._export_events_ics(data['calendar_events'], user_id)
                 zipf.writestr("calendar.ics", ics_result['content'])
             
-            readme = f"""Career Decision Regret AI - Data Export
+            readme = f"""StepWise AI - Data Export
 ========================================
 
 Exported: {datetime.utcnow().isoformat()}

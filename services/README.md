@@ -1,6 +1,6 @@
 # Services Module
 
-The services module contains 65+ microservices that provide specialized functionality for the Career Decision Regret System. Each service is designed to be modular, scalable, and independently deployable.
+The services module contains 65+ microservices that provide specialized functionality for the StepWise AI System. Each service is designed to be modular, scalable, and independently deployable.
 
 ## Table of Contents
 

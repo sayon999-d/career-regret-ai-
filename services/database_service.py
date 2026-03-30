@@ -23,8 +23,8 @@ except ImportError:
     except ImportError:
         psycopg2 = None
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/career_regret_ai")
-SQLITE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'career_ai.db')
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/stepwise_ai")
+SQLITE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'stepwise_ai.db')
 
 
 class DatabaseService:

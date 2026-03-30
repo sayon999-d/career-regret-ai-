@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: career-ai-data-pvc
-  namespace: career-ai
+  name: stepwise-ai-data-pvc
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
 spec:
   accessModes:
     - ReadWriteOnce
@@ -15,10 +15,10 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: career-ai-exports-pvc
-  namespace: career-ai
+  name: stepwise-ai-exports-pvc
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
 spec:
   accessModes:
     - ReadWriteOnce
@@ -29,10 +29,10 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: career-ai-redis-pvc
-  namespace: career-ai
+  name: stepwise-ai-redis-pvc
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
 spec:
   accessModes:
     - ReadWriteOnce

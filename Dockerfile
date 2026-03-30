@@ -55,7 +55,7 @@ RUN mkdir -p /app/data /app/exports /app/logs && \
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    DATABASE_PATH=/app/data/career_regret_ai.db \
+    DATABASE_PATH=/app/data/stepwise_ai.db \
     EXPORT_DIR=/app/exports \
     LOG_DIR=/app/logs \
     PORT=8000

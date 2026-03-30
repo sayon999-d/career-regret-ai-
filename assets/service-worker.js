@@ -1,6 +1,6 @@
-const CACHE_NAME = 'career-ai-v3';
-const STATIC_CACHE = 'career-ai-static-v3';
-const DYNAMIC_CACHE = 'career-ai-dynamic-v3';
+const CACHE_NAME = 'stepwise-ai-v3';
+const STATIC_CACHE = 'stepwise-ai-static-v3';
+const DYNAMIC_CACHE = 'stepwise-ai-dynamic-v3';
 
 const STATIC_ASSETS = [
     '/manifest.json',
@@ -163,7 +163,7 @@ async function updateCacheInBackground(request) {
 self.addEventListener('push', (event) => {
     console.log('[Service Worker] Push received');
 
-    let data = { title: 'Career Decision AI', body: 'New notification' };
+    let data = { title: 'StepWise AI', body: 'New notification' };
 
     if (event.data) {
         try {

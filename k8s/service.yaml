@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: career-ai-service
-  namespace: career-ai
+  name: stepwise-ai-service
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
     component: app
 spec:
   type: ClusterIP
   selector:
-    app: career-ai
+    app: stepwise-ai
     component: app
   ports:
     - name: http
@@ -21,14 +21,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis-service
-  namespace: career-ai
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
     component: redis
 spec:
   type: ClusterIP
   selector:
-    app: career-ai
+    app: stepwise-ai
     component: redis
   ports:
     - name: redis

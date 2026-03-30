@@ -4,7 +4,7 @@ from typing import Dict
 class PWAService:
     def get_manifest(self) -> Dict:
         return {
-            "name": "Career Decision AI",
+            "name": "StepWise AI",
             "short_name": "CareerAI",
             "description": "AI-powered career decision analysis and regret prediction",
             "start_url": "/",
@@ -28,7 +28,7 @@ class PWAService:
 
     def get_service_worker_js(self) -> str:
         return '''
-const CACHE_NAME = 'career-ai-v2';
+const CACHE_NAME = 'stepwise-ai-v2';
 const OFFLINE_URL = '/offline.html';
 
 const STATIC_ASSETS = [
@@ -201,7 +201,7 @@ function getAllFromStore(store) {
 // Push notification handler
 self.addEventListener('push', (event) => {
     const data = event.data ? event.data.json() : {};
-    const title = data.title || 'Career Decision AI';
+    const title = data.title || 'StepWise AI';
     const options = {
         body: data.body || 'You have a new notification',
         icon: '/assets/icon-192.png',
@@ -227,7 +227,7 @@ self.addEventListener('notificationclick', (event) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Career Decision AI - Offline</title>
+    <title>StepWise AI - Offline</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }

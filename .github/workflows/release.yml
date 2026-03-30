@@ -42,8 +42,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t career-decision-ai:${{ github.ref_name }} .
-          docker save career-decision-ai:${{ github.ref_name }} | gzip > career-decision-ai-${{ github.ref_name }}.tar.gz
+          docker build -t stepwise-ai:${{ github.ref_name }} .
+          docker save stepwise-ai:${{ github.ref_name }} | gzip > stepwise-ai-${{ github.ref_name }}.tar.gz
 
       - name: Generate changelog
         id: changelog
@@ -56,7 +56,7 @@ jobs:
         with:
           body_path: CHANGELOG.md
           files: |
-            career-decision-ai-${{ github.ref_name }}.tar.gz
+            stepwise-ai-${{ github.ref_name }}.tar.gz
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
         env:

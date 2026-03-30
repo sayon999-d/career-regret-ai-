@@ -1,6 +1,6 @@
 {
-  "name": "Career Decision AI",
-  "short_name": "CareerAI",
+  "name": "StepWise AI",
+  "short_name": "StepWise",
   "description": "AI-powered career decision analysis and guidance platform",
   "start_url": "/",
   "display": "standalone",

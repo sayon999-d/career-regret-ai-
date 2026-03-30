@@ -1,10 +1,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: career-ai-ingress
-  namespace: career-ai
+  name: stepwise-ai-ingress
+  namespace: stepwise-ai
   labels:
-    app: career-ai
+    app: stepwise-ai
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
@@ -14,16 +14,16 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - career-ai.example.com
-      secretName: career-ai-tls
+        - stepwise-ai.example.com
+      secretName: stepwise-ai-tls
   rules:
-    - host: career-ai.example.com
+    - host: stepwise-ai.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: career-ai-service
+                name: stepwise-ai-service
                 port:
                   number: 80

@@ -1,6 +1,6 @@
 # Models Module
 
-The models module contains the core machine learning pipeline, decision graph engine, and database schema for the Career Decision Regret System. This module is responsible for regret prediction, decision analysis, and data persistence.
+The models module contains the core machine learning pipeline, decision graph engine, and database schema for the StepWise AI System. This module is responsible for regret prediction, decision analysis, and data persistence.
 
 ## Table of Contents
 

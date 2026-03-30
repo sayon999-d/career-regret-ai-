@@ -1,4 +1,4 @@
-# Career Decision Regret AI
+# StepWise AI
 
 An intelligent career decision analysis system that helps users evaluate career choices, predict potential regret, and receive personalized guidance using machine learning and AI.
 
@@ -18,7 +18,7 @@ The result is a cycle of uninformed decisions, avoidable regret, and missed oppo
 
 ## Why This Was Built
 
-Career Decision Regret AI was built to bridge the gap between how important career decisions are and how poorly they are typically made. The goal is to give every person access to the kind of rigorous, data-driven analysis that was previously available only through expensive career coaches or business consultants.
+StepWise AI was built to bridge the gap between how important career decisions are and how poorly they are typically made. The goal is to give every person access to the kind of rigorous, data-driven analysis that was previously available only through expensive career coaches or business consultants.
 
 This system addresses the problem from multiple angles:
 
@@ -30,7 +30,7 @@ This system addresses the problem from multiple angles:
 
 ## Why Use This Over Alternatives
 
-| Consideration | Generic Career Advice | Career Coach | Career Decision Regret AI |
+| Consideration | Generic Career Advice | Career Coach | StepWise AI |
 |---------------|----------------------|-------------|--------------------------|
 | Cost | Free (low quality) | $100-500/session | Free and self-hosted |
 | Personalization | None | High (but subjective) | High (data-driven) |
@@ -56,8 +56,8 @@ Get the system running in under 5 minutes:
 
 **Step 1: Clone and install**
 ```bash
-git clone https://github.com/sayon999-d/career-regret-ai-.git
-cd career-regret-ai-
+git clone https://github.com/sayon999-d/StepwiseAI.git
+cd StepwiseAI
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -262,15 +262,15 @@ graph TB
 
     subgraph K8s["Kubernetes Cluster"]
         subgraph AppDeploy["App Deployment (2-10 Replicas)"]
-            POD1["Pod: career-ai"]
-            POD2["Pod: career-ai"]
+            POD1["Pod: stepwise-ai"]
+            POD2["Pod: stepwise-ai"]
         end
 
         subgraph RedisDeploy["Redis Deployment"]
             RPOD["Pod: redis<br/>Append-Only Persistence"]
         end
 
-        SVC_APP["Service: career-ai-service<br/>ClusterIP :80"]
+        SVC_APP["Service: stepwise-ai-service<br/>ClusterIP :80"]
         SVC_REDIS["Service: redis-service<br/>ClusterIP :6379"]
 
         HPA["HorizontalPodAutoscaler<br/>CPU 70% / Memory 80%"]
@@ -498,8 +498,8 @@ The **Quick Guide** tab serves as an in-app reference, documenting every feature
 ### Local Setup
 
 ```bash
-git clone https://github.com/sayon999-d/career-regret-ai-.git
-cd career-regret-ai-
+git clone https://github.com/sayon999-d/StepwiseAI.git
+cd StepwiseAI
 
 python -m venv venv
 source venv/bin/activate
@@ -528,8 +528,8 @@ Open browser: http://localhost:8000
 
 ```bash
 # Build and push Docker image
-docker build -t ghcr.io/sayon999-d/career-regret-ai-:latest .
-docker push ghcr.io/sayon999-d/career-regret-ai-:latest
+docker build -t ghcr.io/sayon999-d/StepwiseAI:latest .
+docker push ghcr.io/sayon999-d/StepwiseAI:latest
 
 # Update secrets in k8s/secrets.yaml with real values
 
@@ -681,7 +681,7 @@ kubectl apply -f k8s/hpa.yaml
 ## Project Structure
 
 ```
-career-regret-ai-/
+StepwiseAI/
 ├── main.py                           FastAPI application (single-file dashboard + API)
 ├── config.py                         Configuration (pydantic BaseSettings)
 ├── requirements.txt                  Python dependencies

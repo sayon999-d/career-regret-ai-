@@ -338,7 +338,7 @@ class ExportService:
         ical = []
         ical.append("BEGIN:VCALENDAR")
         ical.append("VERSION:2.0")
-        ical.append("PRODID:-//Career Decision AI//EN")
+        ical.append("PRODID:-//StepWise AI//EN")
 
         for event in events:
             ical.append("BEGIN:VEVENT")
